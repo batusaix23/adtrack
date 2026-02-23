@@ -3,8 +3,9 @@
 import React from 'react';
 import useSWR from 'swr';
 import { AdminLayout } from '@/components/layout/AdminLayout';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Card, CardHeader } from '@/components/ui/Card';
-import { Badge, StatusBadge } from '@/components/ui/Badge';
+import { Badge } from '@/components/ui/Badge';
 import { fetcher } from '@/lib/api';
 import {
   CheckCircleIcon,
@@ -14,11 +15,12 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function AdminDashboard() {
-  const { data, error, isLoading } = useSWR('/analytics/dashboard', fetcher);
+  const { t } = useLanguage();
+  const { data, isLoading } = useSWR('/analytics/dashboard', fetcher);
 
   if (isLoading) {
     return (
-      <AdminLayout title="Dashboard">
+      <AdminLayout title={t('dashboard.title')}>
         <div className="animate-pulse space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
@@ -33,13 +35,13 @@ export default function AdminDashboard() {
   const { today, week, alerts, inventory, recentServices } = data || {};
 
   return (
-    <AdminLayout title="Dashboard">
+    <AdminLayout title={t('dashboard.title')}>
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="border-l-4 border-l-green-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Completados Hoy</p>
+              <p className="text-sm text-gray-500">{t('dashboard.completedToday')}</p>
               <p className="text-3xl font-bold text-gray-900">{today?.completed || 0}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
@@ -51,7 +53,7 @@ export default function AdminDashboard() {
         <Card className="border-l-4 border-l-yellow-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Pendientes Hoy</p>
+              <p className="text-sm text-gray-500">{t('dashboard.pendingToday')}</p>
               <p className="text-3xl font-bold text-gray-900">{today?.pending || 0}</p>
             </div>
             <div className="p-3 bg-yellow-100 rounded-lg">
@@ -63,10 +65,10 @@ export default function AdminDashboard() {
         <Card className="border-l-4 border-l-red-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Alertas Activas</p>
+              <p className="text-sm text-gray-500">{t('dashboard.activeAlerts')}</p>
               <p className="text-3xl font-bold text-gray-900">{alerts?.total_active || 0}</p>
               {alerts?.critical > 0 && (
-                <Badge variant="danger" size="sm">{alerts.critical} críticas</Badge>
+                <Badge variant="danger" size="sm">{alerts.critical} {t('dashboard.critical')}</Badge>
               )}
             </div>
             <div className="p-3 bg-red-100 rounded-lg">
@@ -78,7 +80,7 @@ export default function AdminDashboard() {
         <Card className="border-l-4 border-l-blue-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Inventario Bajo</p>
+              <p className="text-sm text-gray-500">{t('dashboard.lowStock')}</p>
               <p className="text-3xl font-bold text-gray-900">{inventory?.low_stock_count || 0}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -91,7 +93,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Services */}
         <Card>
-          <CardHeader title="Servicios Recientes" />
+          <CardHeader title={t('dashboard.recentServices')} />
           <div className="space-y-3">
             {recentServices?.length > 0 ? (
               recentServices.map((service: any) => (
@@ -109,38 +111,38 @@ export default function AdminDashboard() {
                       <span>Cl: {service.chlorine_level?.toFixed(1) || '-'}</span>
                     </div>
                     <p className="text-xs text-gray-500">
-                      {new Date(service.scheduled_date).toLocaleDateString('es-ES')}
+                      {new Date(service.scheduled_date).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-center py-4">No hay servicios recientes</p>
+              <p className="text-gray-500 text-center py-4">{t('common.noData')}</p>
             )}
           </div>
         </Card>
 
         {/* Weekly Summary */}
         <Card>
-          <CardHeader title="Resumen Semanal" />
+          <CardHeader title={t('dashboard.weeklySummary')} />
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Servicios totales</span>
+              <span className="text-gray-600">{t('dashboard.totalServices')}</span>
               <span className="font-semibold">{week?.total_services || 0}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Completados</span>
+              <span className="text-gray-600">{t('dashboard.completed')}</span>
               <span className="font-semibold text-green-600">{week?.completed || 0}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Tiempo total</span>
+              <span className="text-gray-600">{t('dashboard.totalTime')}</span>
               <span className="font-semibold">
                 {week?.total_minutes ? `${Math.round(week.total_minutes / 60)}h` : '0h'}
               </span>
             </div>
             <div className="pt-4 border-t">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Tasa de completado</span>
+                <span className="text-gray-600">{t('dashboard.completionRate')}</span>
                 <span className="font-semibold text-primary-600">
                   {week?.total_services
                     ? `${Math.round((week.completed / week.total_services) * 100)}%`

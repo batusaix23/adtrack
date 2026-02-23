@@ -4,8 +4,10 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { LanguageToggleSimple } from '@/components/ui/LanguageToggle';
 import toast from 'react-hot-toast';
 
 interface LoginForm {
@@ -16,15 +18,16 @@ interface LoginForm {
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { t } = useLanguage();
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
 
   const onSubmit = async (data: LoginForm) => {
     setLoading(true);
     try {
       await login(data.email, data.password);
-      toast.success('Bienvenido');
+      toast.success(t('auth.welcome'));
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Error al iniciar sesión');
+      toast.error(error.response?.data?.error || 'Error');
     } finally {
       setLoading(false);
     }
@@ -44,30 +47,35 @@ export default function LoginPage() {
         </div>
         <div>
           <h1 className="text-4xl font-bold text-white mb-4">
-            Gestión inteligente de piscinas
+            {t('login.tagline') || 'Smart Pool Management'}
           </h1>
           <p className="text-primary-100 text-lg">
-            Optimiza tu negocio de mantenimiento de piscinas con nuestra plataforma completa.
+            {t('login.subtitle') || 'Optimize your pool maintenance business with our complete platform.'}
           </p>
         </div>
         <div className="flex gap-8 text-primary-100">
           <div>
             <p className="text-3xl font-bold text-white">500+</p>
-            <p>Piscinas gestionadas</p>
+            <p>{t('login.poolsManaged') || 'Pools managed'}</p>
           </div>
           <div>
             <p className="text-3xl font-bold text-white">50+</p>
-            <p>Empresas activas</p>
+            <p>{t('login.activeCompanies') || 'Active companies'}</p>
           </div>
           <div>
             <p className="text-3xl font-bold text-white">10k+</p>
-            <p>Servicios completados</p>
+            <p>{t('login.servicesCompleted') || 'Services completed'}</p>
           </div>
         </div>
       </div>
 
       {/* Right side - form */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-gray-50">
+      <div className="flex-1 flex items-center justify-center p-6 bg-gray-50 relative">
+        {/* Language Toggle */}
+        <div className="absolute top-4 right-4">
+          <LanguageToggleSimple />
+        </div>
+
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden mb-8 text-center">
@@ -81,56 +89,56 @@ export default function LoginPage() {
 
           <div className="bg-white rounded-2xl shadow-lg p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Iniciar sesión
+              {t('auth.login')}
             </h2>
             <p className="text-gray-600 mb-6">
-              Ingresa tus credenciales para acceder
+              {t('auth.loginSubtitle')}
             </p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <Input
-                label="Correo electrónico"
+                label={t('auth.email')}
                 type="email"
-                placeholder="tu@email.com"
+                placeholder="you@email.com"
                 error={errors.email?.message}
                 {...register('email', {
-                  required: 'El email es requerido',
+                  required: t('validation.emailRequired') || 'Email is required',
                   pattern: {
                     value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Email inválido',
+                    message: t('validation.emailInvalid') || 'Invalid email',
                   },
                 })}
               />
 
               <Input
-                label="Contraseña"
+                label={t('auth.password')}
                 type="password"
                 placeholder="••••••••"
                 error={errors.password?.message}
                 {...register('password', {
-                  required: 'La contraseña es requerida',
+                  required: t('validation.passwordRequired') || 'Password is required',
                 })}
               />
 
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2">
                   <input type="checkbox" className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                  <span className="text-sm text-gray-600">Recordarme</span>
+                  <span className="text-sm text-gray-600">{t('auth.rememberMe')}</span>
                 </label>
                 <Link href="/forgot-password" className="text-sm text-primary-600 hover:text-primary-700">
-                  ¿Olvidaste tu contraseña?
+                  {t('auth.forgotPassword')}
                 </Link>
               </div>
 
               <Button type="submit" className="w-full" loading={loading}>
-                Iniciar sesión
+                {t('auth.login')}
               </Button>
             </form>
 
             <p className="mt-6 text-center text-gray-600">
-              ¿No tienes cuenta?{' '}
+              {t('auth.noAccount')}{' '}
               <Link href="/register" className="text-primary-600 hover:text-primary-700 font-medium">
-                Registrar empresa
+                {t('auth.registerCompany')}
               </Link>
             </p>
           </div>

@@ -2,9 +2,11 @@
 
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from './BottomNav';
 import { LoadingScreen } from '@/components/ui/Spinner';
+import { GlobeAltIcon } from '@heroicons/react/24/outline';
 
 interface TechnicianLayoutProps {
   children: React.ReactNode;
@@ -20,7 +22,12 @@ export function TechnicianLayout({
   onBack,
 }: TechnicianLayoutProps) {
   const { user, loading, logout } = useAuth();
+  const { language, setLanguage } = useLanguage();
   const router = useRouter();
+
+  const toggleLanguage = () => {
+    setLanguage(language === 'en' ? 'es' : 'en');
+  };
 
   if (loading) {
     return <LoadingScreen />;
@@ -33,6 +40,17 @@ export function TechnicianLayout({
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
+      {/* Language Toggle - Always visible */}
+      <div className="fixed top-3 right-3 z-50">
+        <button
+          onClick={toggleLanguage}
+          className="flex items-center gap-1 px-2 py-1 bg-white/90 rounded-lg shadow-md hover:bg-white transition-colors"
+        >
+          <GlobeAltIcon className="h-5 w-5 text-gray-600" />
+          <span className="text-sm font-medium">{language === 'en' ? 'ES' : 'EN'}</span>
+        </button>
+      </div>
+
       {/* Header */}
       {title && (
         <header className="sticky top-0 bg-white border-b border-gray-200 z-30">

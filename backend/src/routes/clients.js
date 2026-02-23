@@ -44,7 +44,10 @@ router.get('/', authenticate, async (req, res, next) => {
     const { search, active } = req.query;
 
     let sql = `
-      SELECT c.*,
+      SELECT c.id, c.name, c.last_name, c.company_name, c.email, c.phone,
+             c.address, c.city, c.state, c.zip_code, c.notes, c.is_active,
+             c.service_day, c.service_frequency, c.client_type,
+             c.portal_enabled, c.portal_email,
              COUNT(p.id) as pool_count,
              (SELECT COUNT(*) FROM service_records sr
               JOIN pools p2 ON sr.pool_id = p2.id
@@ -107,17 +110,17 @@ router.get('/:id', authenticate, async (req, res, next) => {
 // Create client
 router.post('/', authenticate, authorizeRoles('owner', 'admin'), async (req, res, next) => {
   try {
-    const { name, lastName, companyName, email, phone, address, city, state, zipCode, notes, billingEmail } = req.body;
+    const { name, lastName, companyName, email, phone, address, city, state, zipCode, notes, billingEmail, serviceDay, serviceFrequency, clientType } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'El nombre es requerido' });
     }
 
     const result = await query(
-      `INSERT INTO clients (company_id, name, last_name, company_name, email, phone, address, city, state, zip_code, notes, billing_email)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      `INSERT INTO clients (company_id, name, last_name, company_name, email, phone, address, city, state, zip_code, notes, billing_email, service_day, service_frequency, client_type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING *`,
-      [req.user.company_id, name, lastName, companyName, email, phone, address, city, state, zipCode, notes, billingEmail]
+      [req.user.company_id, name, lastName, companyName, email, phone, address, city, state, zipCode, notes, billingEmail, serviceDay, serviceFrequency || 1, clientType || 'residential']
     );
 
     res.status(201).json({ client: result.rows[0] });
@@ -129,7 +132,7 @@ router.post('/', authenticate, authorizeRoles('owner', 'admin'), async (req, res
 // Update client
 router.put('/:id', authenticate, authorizeRoles('owner', 'admin'), async (req, res, next) => {
   try {
-    const { name, lastName, companyName, email, phone, address, city, state, zipCode, notes, billingEmail, isActive } = req.body;
+    const { name, lastName, companyName, email, phone, address, city, state, zipCode, notes, billingEmail, isActive, serviceDay, serviceFrequency, clientType } = req.body;
 
     const result = await query(
       `UPDATE clients
@@ -144,10 +147,13 @@ router.put('/:id', authenticate, authorizeRoles('owner', 'admin'), async (req, r
            zip_code = COALESCE($9, zip_code),
            notes = COALESCE($10, notes),
            billing_email = COALESCE($11, billing_email),
-           is_active = COALESCE($12, is_active)
-       WHERE id = $13 AND company_id = $14
+           is_active = COALESCE($12, is_active),
+           service_day = COALESCE($13, service_day),
+           service_frequency = COALESCE($14, service_frequency),
+           client_type = COALESCE($15, client_type)
+       WHERE id = $16 AND company_id = $17
        RETURNING *`,
-      [name, lastName, companyName, email, phone, address, city, state, zipCode, notes, billingEmail, isActive, req.params.id, req.user.company_id]
+      [name, lastName, companyName, email, phone, address, city, state, zipCode, notes, billingEmail, isActive, serviceDay, serviceFrequency, clientType, req.params.id, req.user.company_id]
     );
 
     if (result.rows.length === 0) {

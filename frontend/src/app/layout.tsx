@@ -32,6 +32,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
+      <head>
+        <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+        <link rel="apple-touch-icon" href="/icons/icon.svg" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="AguaTrack" />
+      </head>
       <body className={inter.className}>
         <Providers>
           {children}
@@ -47,6 +54,24 @@ export default function RootLayout({
             }}
           />
         </Providers>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').then(
+                    function(registration) {
+                      console.log('ServiceWorker registered:', registration.scope);
+                    },
+                    function(err) {
+                      console.log('ServiceWorker registration failed:', err);
+                    }
+                  );
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );

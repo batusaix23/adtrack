@@ -34,7 +34,7 @@ router.get('/dashboard', authenticate, authorizeRoles('owner', 'admin'), async (
         SELECT
           COUNT(*) as total_services,
           COUNT(*) FILTER (WHERE status = 'completed') as completed,
-          SUM(duration_minutes) as total_minutes
+          SUM(EXTRACT(EPOCH FROM (departure_time - arrival_time))/60) as total_minutes
         FROM service_records
         WHERE company_id = $1
           AND scheduled_date >= CURRENT_DATE - INTERVAL '7 days'
@@ -118,9 +118,9 @@ router.get('/trends/chemicals', authenticate, authorizeRoles('owner', 'admin'), 
       SELECT
         DATE(sr.scheduled_date) as date,
         ch.name,
-        SUM(cu.quantity) as quantity,
-        SUM(cu.quantity * ch.cost_per_unit) as cost
-      FROM chemical_usage cu
+        SUM(cu.quantity_used) as quantity,
+        SUM(cu.quantity_used * ch.cost_per_unit) as cost
+      FROM service_chemicals cu
       JOIN service_records sr ON cu.service_record_id = sr.id
       JOIN chemicals ch ON cu.chemical_id = ch.id
       WHERE sr.company_id = $1
@@ -181,7 +181,7 @@ router.get('/performance/technicians', authenticate, authorizeRoles('owner', 'ad
         u.last_name,
         COUNT(sr.id) as total_services,
         COUNT(sr.id) FILTER (WHERE sr.status = 'completed') as completed,
-        AVG(sr.duration_minutes) FILTER (WHERE sr.status = 'completed') as avg_duration,
+        AVG(EXTRACT(EPOCH FROM (sr.departure_time - sr.arrival_time))/60) FILTER (WHERE sr.status = 'completed') as avg_duration,
         AVG(sr.ph_level) FILTER (WHERE sr.ph_level IS NOT NULL) as avg_ph_reading,
         COUNT(DISTINCT DATE(sr.scheduled_date)) as active_days
       FROM users u
@@ -248,14 +248,14 @@ router.get('/summary/monthly', authenticate, authorizeRoles('owner', 'admin'), a
       query(`
         SELECT COUNT(*) as total,
                COUNT(*) FILTER (WHERE status = 'completed') as completed,
-               SUM(duration_minutes) FILTER (WHERE status = 'completed') as total_minutes
+               SUM(EXTRACT(EPOCH FROM (departure_time - arrival_time))/60) FILTER (WHERE status = 'completed') as total_minutes
         FROM service_records
         WHERE company_id = $1 AND scheduled_date BETWEEN $2 AND $3
       `, [req.user.company_id, startDate, endDate]),
 
       query(`
-        SELECT SUM(cu.quantity * ch.cost_per_unit) as total_cost
-        FROM chemical_usage cu
+        SELECT SUM(cu.quantity_used * ch.cost_per_unit) as total_cost
+        FROM service_chemicals cu
         JOIN chemicals ch ON cu.chemical_id = ch.id
         JOIN service_records sr ON cu.service_record_id = sr.id
         WHERE sr.company_id = $1 AND sr.scheduled_date BETWEEN $2 AND $3

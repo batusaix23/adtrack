@@ -1,0 +1,337 @@
+const express = require('express');
+const { query } = require('../config/database');
+const authenticate = require('../middleware/authenticate');
+const { authorizeRoles } = require('../middleware/authorize');
+
+const router = express.Router();
+
+// ============================================
+// SERVICE ITEMS CATALOG (Master list)
+// ============================================
+
+// Get all service items (catalog)
+router.get('/', authenticate, async (req, res, next) => {
+  try {
+    const { type, category, search, active } = req.query;
+
+    let sql = `
+      SELECT * FROM service_items
+      WHERE company_id = $1
+    `;
+    const params = [req.user.company_id];
+    let paramIndex = 2;
+
+    if (type) {
+      sql += ` AND item_type = $${paramIndex}`;
+      params.push(type);
+      paramIndex++;
+    }
+
+    if (category) {
+      sql += ` AND category = $${paramIndex}`;
+      params.push(category);
+      paramIndex++;
+    }
+
+    if (search) {
+      sql += ` AND (name ILIKE $${paramIndex} OR description ILIKE $${paramIndex})`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    if (active !== undefined) {
+      sql += ` AND is_active = $${paramIndex}`;
+      params.push(active === 'true');
+      paramIndex++;
+    }
+
+    sql += ' ORDER BY item_type, category, name';
+
+    const result = await query(sql, params);
+    res.json({ items: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get categories
+router.get('/categories', authenticate, async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT DISTINCT category FROM service_items
+       WHERE company_id = $1 AND category IS NOT NULL
+       ORDER BY category`,
+      [req.user.company_id]
+    );
+    res.json({ categories: result.rows.map(r => r.category) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get single item
+router.get('/:id', authenticate, async (req, res, next) => {
+  try {
+    const result = await query(
+      'SELECT * FROM service_items WHERE id = $1 AND company_id = $2',
+      [req.params.id, req.user.company_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    res.json({ item: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Create service item
+router.post('/', authenticate, authorizeRoles('owner', 'admin'), async (req, res, next) => {
+  try {
+    const { name, description, itemType, category, basePrice, unit, taxRate } = req.body;
+
+    if (!name || basePrice === undefined) {
+      return res.status(400).json({ error: 'Name and base price are required' });
+    }
+
+    const result = await query(
+      `INSERT INTO service_items (company_id, name, description, item_type, category, base_price, unit, tax_rate)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [req.user.company_id, name, description, itemType || 'service', category, basePrice, unit || 'unit', taxRate || 0]
+    );
+
+    res.status(201).json({ item: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update service item
+router.put('/:id', authenticate, authorizeRoles('owner', 'admin'), async (req, res, next) => {
+  try {
+    const { name, description, itemType, category, basePrice, unit, taxRate, isActive } = req.body;
+
+    const result = await query(
+      `UPDATE service_items SET
+        name = COALESCE($1, name),
+        description = COALESCE($2, description),
+        item_type = COALESCE($3, item_type),
+        category = COALESCE($4, category),
+        base_price = COALESCE($5, base_price),
+        unit = COALESCE($6, unit),
+        tax_rate = COALESCE($7, tax_rate),
+        is_active = COALESCE($8, is_active),
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = $9 AND company_id = $10
+       RETURNING *`,
+      [name, description, itemType, category, basePrice, unit, taxRate, isActive, req.params.id, req.user.company_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    res.json({ item: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete service item
+router.delete('/:id', authenticate, authorizeRoles('owner', 'admin'), async (req, res, next) => {
+  try {
+    // Check if item is assigned to any client
+    const usageCheck = await query(
+      'SELECT COUNT(*) FROM client_service_items WHERE service_item_id = $1',
+      [req.params.id]
+    );
+
+    if (parseInt(usageCheck.rows[0].count) > 0) {
+      // Soft delete - just deactivate
+      await query(
+        'UPDATE service_items SET is_active = false WHERE id = $1 AND company_id = $2',
+        [req.params.id, req.user.company_id]
+      );
+      return res.json({ message: 'Item deactivated (in use by clients)' });
+    }
+
+    const result = await query(
+      'DELETE FROM service_items WHERE id = $1 AND company_id = $2 RETURNING id',
+      [req.params.id, req.user.company_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    res.json({ message: 'Item deleted' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// CLIENT SERVICE ITEMS (Items assigned to clients)
+// ============================================
+
+// Get items assigned to a client
+router.get('/client/:clientId', authenticate, async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT csi.*, si.name, si.description, si.item_type, si.category, si.base_price, si.unit
+       FROM client_service_items csi
+       JOIN service_items si ON csi.service_item_id = si.id
+       WHERE csi.client_id = $1 AND csi.company_id = $2
+       ORDER BY csi.is_recurring DESC, si.item_type, si.name`,
+      [req.params.clientId, req.user.company_id]
+    );
+
+    res.json({ clientItems: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Assign item to client
+router.post('/client/:clientId', authenticate, authorizeRoles('owner', 'admin'), async (req, res, next) => {
+  try {
+    const { serviceItemId, customPrice, quantity, frequency, isRecurring, startDate, notes } = req.body;
+
+    if (!serviceItemId) {
+      return res.status(400).json({ error: 'Service item ID is required' });
+    }
+
+    // Verify the item belongs to the company
+    const itemCheck = await query(
+      'SELECT id FROM service_items WHERE id = $1 AND company_id = $2',
+      [serviceItemId, req.user.company_id]
+    );
+
+    if (itemCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Service item not found' });
+    }
+
+    const result = await query(
+      `INSERT INTO client_service_items
+        (client_id, company_id, service_item_id, custom_price, quantity, frequency, is_recurring, start_date, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (client_id, service_item_id, frequency)
+       DO UPDATE SET
+         custom_price = EXCLUDED.custom_price,
+         quantity = EXCLUDED.quantity,
+         is_recurring = EXCLUDED.is_recurring,
+         is_active = true,
+         notes = EXCLUDED.notes,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [
+        req.params.clientId,
+        req.user.company_id,
+        serviceItemId,
+        customPrice,
+        quantity || 1,
+        frequency || 'monthly',
+        isRecurring !== false,
+        startDate || new Date(),
+        notes
+      ]
+    );
+
+    // Fetch with item details
+    const fullResult = await query(
+      `SELECT csi.*, si.name, si.description, si.item_type, si.category, si.base_price, si.unit
+       FROM client_service_items csi
+       JOIN service_items si ON csi.service_item_id = si.id
+       WHERE csi.id = $1`,
+      [result.rows[0].id]
+    );
+
+    res.status(201).json({ clientItem: fullResult.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update client item assignment
+router.put('/client/:clientId/:itemId', authenticate, authorizeRoles('owner', 'admin'), async (req, res, next) => {
+  try {
+    const { customPrice, quantity, frequency, isRecurring, isActive, endDate, notes } = req.body;
+
+    const result = await query(
+      `UPDATE client_service_items SET
+        custom_price = COALESCE($1, custom_price),
+        quantity = COALESCE($2, quantity),
+        frequency = COALESCE($3, frequency),
+        is_recurring = COALESCE($4, is_recurring),
+        is_active = COALESCE($5, is_active),
+        end_date = $6,
+        notes = COALESCE($7, notes),
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = $8 AND client_id = $9 AND company_id = $10
+       RETURNING *`,
+      [customPrice, quantity, frequency, isRecurring, isActive, endDate, notes, req.params.itemId, req.params.clientId, req.user.company_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Client item not found' });
+    }
+
+    res.json({ clientItem: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Remove item from client
+router.delete('/client/:clientId/:itemId', authenticate, authorizeRoles('owner', 'admin'), async (req, res, next) => {
+  try {
+    const result = await query(
+      'DELETE FROM client_service_items WHERE id = $1 AND client_id = $2 AND company_id = $3 RETURNING id',
+      [req.params.itemId, req.params.clientId, req.user.company_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Client item not found' });
+    }
+
+    res.json({ message: 'Item removed from client' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get client's monthly total
+router.get('/client/:clientId/summary', authenticate, async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT
+        COUNT(*) as total_items,
+        COUNT(*) FILTER (WHERE csi.is_recurring = true) as recurring_items,
+        SUM(
+          COALESCE(csi.custom_price, si.base_price) * csi.quantity *
+          CASE csi.frequency
+            WHEN 'weekly' THEN 4
+            WHEN 'biweekly' THEN 2
+            WHEN 'monthly' THEN 1
+            WHEN 'quarterly' THEN 0.33
+            WHEN 'semiannual' THEN 0.17
+            WHEN 'annual' THEN 0.083
+            ELSE 0
+          END
+        ) as estimated_monthly_total
+       FROM client_service_items csi
+       JOIN service_items si ON csi.service_item_id = si.id
+       WHERE csi.client_id = $1 AND csi.company_id = $2 AND csi.is_active = true AND csi.is_recurring = true`,
+      [req.params.clientId, req.user.company_id]
+    );
+
+    res.json({ summary: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+module.exports = router;

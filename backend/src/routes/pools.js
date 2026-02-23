@@ -11,7 +11,7 @@ router.get('/', authenticate, async (req, res, next) => {
     const { clientId, serviceDay, active } = req.query;
 
     let sql = `
-      SELECT p.*, c.name as client_name, c.phone as client_phone,
+      SELECT p.*, c.name as client_name, c.last_name as client_last_name, c.phone as client_phone,
              (SELECT scheduled_date FROM service_records sr
               WHERE sr.pool_id = p.id AND sr.status = 'completed'
               ORDER BY scheduled_date DESC LIMIT 1) as last_service_date
@@ -54,7 +54,7 @@ router.get('/today', authenticate, async (req, res, next) => {
     const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date().getDay()];
 
     let sql = `
-      SELECT p.*, c.name as client_name, c.phone as client_phone, c.address as client_address,
+      SELECT p.*, c.name as client_name, c.last_name as client_last_name, c.phone as client_phone, c.address as client_address,
              sr.id as service_record_id, sr.status as service_status
       FROM pools p
       JOIN clients c ON c.id = p.client_id

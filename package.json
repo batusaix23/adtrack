@@ -1,0 +1,23 @@
+{
+  "name": "aguadulce-track",
+  "version": "1.0.0",
+  "description": "Sistema SaaS para empresas de mantenimiento de piscinas",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "echo 'Build handled by railway.json'",
+    "start": "cd backend && node src/app.js",
+    "db:init": "cd backend && node scripts/init-db.js",
+    "db:seed": "cd backend && node scripts/seed-db.js",
+    "test": "cd backend && npm test",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -21,10 +21,16 @@ export function LanguageToggle() {
 export function LanguageToggleSimple() {
   const { language, setLanguage } = useLanguage();
 
+  const handleSetLanguage = (lang: 'en' | 'es') => {
+    console.log('Setting language to:', lang);
+    setLanguage(lang);
+  };
+
   return (
     <div className="flex items-center bg-gray-100 rounded-lg p-1">
       <button
-        onClick={() => setLanguage('en')}
+        type="button"
+        onClick={() => handleSetLanguage('en')}
         className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
           language === 'en'
             ? 'bg-white text-primary-600 shadow-sm'
@@ -34,7 +40,8 @@ export function LanguageToggleSimple() {
         EN
       </button>
       <button
-        onClick={() => setLanguage('es')}
+        type="button"
+        onClick={() => handleSetLanguage('es')}
         className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
           language === 'es'
             ? 'bg-white text-primary-600 shadow-sm'

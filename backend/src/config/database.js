@@ -5,21 +5,32 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000,
 });
 
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
-  process.exit(-1);
 });
 
-async function testConnection() {
-  const client = await pool.connect();
-  try {
-    await client.query('SELECT NOW()');
-    return true;
-  } finally {
-    client.release();
+async function testConnection(retries = 5, delay = 3000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const client = await pool.connect();
+      try {
+        await client.query('SELECT NOW()');
+        return true;
+      } finally {
+        client.release();
+      }
+    } catch (err) {
+      console.log(`Database connection attempt ${i + 1}/${retries} failed:`, err.message);
+      if (i < retries - 1) {
+        console.log(`Retrying in ${delay / 1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw err;
+      }
+    }
   }
 }
 

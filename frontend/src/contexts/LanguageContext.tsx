@@ -38,12 +38,69 @@ const translations: Record<Language, Record<string, string>> = {
     'auth.loginSubtitle': 'Enter your credentials to access',
     'auth.demoCredentials': 'Demo credentials',
 
+    // Login page
+    'login.tagline': 'Smart Pool Management',
+    'login.subtitle': 'Optimize your pool maintenance business with our complete platform.',
+    'login.poolsManaged': 'Pools managed',
+    'login.activeCompanies': 'Active companies',
+    'login.servicesCompleted': 'Services completed',
+
+    // Validation
+    'validation.emailRequired': 'Email is required',
+    'validation.emailInvalid': 'Invalid email',
+    'validation.passwordRequired': 'Password is required',
+
+    // Roles
+    'role.owner': 'Owner',
+    'role.admin': 'Admin',
+    'role.technician': 'Technician',
+
+    // Service & Billing
+    'clients.serviceInfo': 'Service Information',
+    'clients.serviceFrequency': 'Times per Week',
+    'clients.billingFrequency': 'Billing Frequency',
+    'clients.clientType': 'Client Type',
+    'clients.ratesNote': 'Rates and equipment can be managed in the client detail view after creation.',
+    'frequency.weekly': 'Weekly',
+    'frequency.biweekly': 'Bi-weekly',
+    'frequency.monthly': 'Monthly',
+    'frequency.perWeek': 'per week',
+    'billing.monthly': 'Monthly',
+    'billing.quarterly': 'Quarterly',
+    'billing.semiannual': 'Semi-Annual',
+    'billing.annual': 'Annual',
+    'common.select': 'Select...',
+    'services.day': 'Day',
+
+    // Equipment
+    'equipment.title': 'Equipment',
+    'equipment.type': 'Equipment Type',
+    'equipment.brand': 'Brand',
+    'equipment.model': 'Model',
+    'equipment.serial': 'Serial Number',
+    'equipment.installDate': 'Install Date',
+    'equipment.pump': 'Pump',
+    'equipment.filter': 'Filter',
+    'equipment.heater': 'Heater',
+    'equipment.chlorinator': 'Chlorinator',
+    'equipment.automation': 'Automation',
+    'equipment.cleaner': 'Cleaner',
+    'equipment.other': 'Other',
+
+    // Rates
+    'rates.title': 'Rates & Services',
+    'rates.name': 'Service Name',
+    'rates.amount': 'Amount',
+    'rates.frequency': 'Frequency',
+    'rates.addRate': 'Add Rate',
+
     // Navigation
     'nav.dashboard': 'Dashboard',
     'nav.services': 'Services',
     'nav.calendar': 'Calendar',
     'nav.clients': 'Clients',
-    'nav.pools': 'Pools',
+    'nav.pools': 'Routes',
+    'nav.routes': 'Routes',
     'nav.chemicals': 'Chemicals',
     'nav.inventory': 'Inventory',
     'nav.alerts': 'Alerts',
@@ -52,6 +109,7 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.profile': 'Profile',
     'nav.logout': 'Logout',
     'nav.company': 'Company',
+    'nav.catalog': 'Catalog',
 
     // Dashboard
     'dashboard.title': 'Dashboard',
@@ -234,6 +292,75 @@ const translations: Record<Language, Record<string, string>> = {
     'task.checkedEquipment': 'Checked equipment',
     'task.backwashedFilter': 'Backwashed filter',
     'task.emptiedPumpBasket': 'Emptied pump basket',
+
+    // Portal
+    'portal.clientPortal': 'Client Portal',
+    'portal.welcome': 'Welcome',
+    'portal.serviceHistory': 'Service History',
+    'portal.billingHistory': 'Billing History',
+    'portal.yourEquipment': 'Your Equipment',
+    'portal.recentServices': 'Recent Services',
+    'portal.noServices': 'No services recorded yet',
+    'portal.viewAll': 'View All',
+    'portal.amount': 'Amount',
+    'portal.status': 'Status',
+    'portal.paid': 'Paid',
+    'portal.pending': 'Pending',
+    'portal.overdue': 'Overdue',
+    'portal.contactProvider': 'Contact your pool service provider if you need access.',
+
+    // Invoices
+    'nav.invoices': 'Invoices',
+    'invoices.title': 'Invoices',
+    'invoices.new': 'New Invoice',
+    'invoices.generateMonthly': 'Generate Monthly',
+    'invoices.client': 'Client',
+    'invoices.invoiceNumber': 'Invoice #',
+    'invoices.issueDate': 'Issue Date',
+    'invoices.dueDate': 'Due Date',
+    'invoices.total': 'Total',
+    'invoices.balanceDue': 'Balance Due',
+    'invoices.status': 'Status',
+    'invoices.draft': 'Draft',
+    'invoices.sent': 'Sent',
+    'invoices.paid': 'Paid',
+    'invoices.overdue': 'Overdue',
+    'invoices.cancelled': 'Cancelled',
+    'invoices.noInvoices': 'No invoices found',
+    'invoices.createFirst': 'Create your first invoice',
+    'invoices.markAsSent': 'Mark as Sent',
+    'invoices.recordPayment': 'Record Payment',
+    'invoices.viewDetails': 'View Details',
+    'invoices.delete': 'Delete',
+    'invoices.outstanding': 'Outstanding',
+    'invoices.paidThisMonth': 'Paid This Month',
+    'invoices.allStatuses': 'All Statuses',
+    'invoices.selectClient': 'Select Client',
+    'invoices.items': 'Items',
+    'invoices.description': 'Description',
+    'invoices.quantity': 'Qty',
+    'invoices.unitPrice': 'Unit Price',
+    'invoices.amount': 'Amount',
+    'invoices.subtotal': 'Subtotal',
+    'invoices.tax': 'Tax',
+    'invoices.addItem': 'Add Item',
+    'invoices.notes': 'Notes',
+    'invoices.terms': 'Terms',
+    'invoices.generateFromRates': 'Generate from Rates',
+    'invoices.paymentAmount': 'Payment Amount',
+    'invoices.paymentMethod': 'Payment Method',
+    'invoices.paymentDate': 'Payment Date',
+    'invoices.cash': 'Cash',
+    'invoices.check': 'Check',
+    'invoices.card': 'Credit/Debit Card',
+    'invoices.transfer': 'Bank Transfer',
+    'invoices.other': 'Other',
+    'invoices.confirmDelete': 'Are you sure you want to delete this invoice?',
+    'invoices.settings': 'Invoice Settings',
+    'invoices.prefix': 'Invoice Prefix',
+    'invoices.defaultDueDays': 'Default Due Days',
+    'invoices.defaultTaxRate': 'Default Tax Rate (%)',
+    'invoices.generateSuccess': 'Invoices generated successfully',
   },
   es: {
     // Auth
@@ -262,12 +389,69 @@ const translations: Record<Language, Record<string, string>> = {
     'auth.loginSubtitle': 'Ingresa tus credenciales para acceder',
     'auth.demoCredentials': 'Credenciales demo',
 
+    // Login page
+    'login.tagline': 'Gestión Inteligente de Piscinas',
+    'login.subtitle': 'Optimiza tu negocio de mantenimiento de piscinas con nuestra plataforma completa.',
+    'login.poolsManaged': 'Piscinas gestionadas',
+    'login.activeCompanies': 'Empresas activas',
+    'login.servicesCompleted': 'Servicios completados',
+
+    // Validation
+    'validation.emailRequired': 'El email es requerido',
+    'validation.emailInvalid': 'Email inválido',
+    'validation.passwordRequired': 'La contraseña es requerida',
+
+    // Roles
+    'role.owner': 'Propietario',
+    'role.admin': 'Administrador',
+    'role.technician': 'Técnico',
+
+    // Service & Billing
+    'clients.serviceInfo': 'Información de Servicio',
+    'clients.serviceFrequency': 'Veces por Semana',
+    'clients.billingFrequency': 'Frecuencia de Facturación',
+    'clients.clientType': 'Tipo de Cliente',
+    'clients.ratesNote': 'Las tarifas y equipos se pueden gestionar en la vista de detalle del cliente después de crearlo.',
+    'frequency.weekly': 'Semanal',
+    'frequency.biweekly': 'Quincenal',
+    'frequency.monthly': 'Mensual',
+    'frequency.perWeek': 'por semana',
+    'billing.monthly': 'Mensual',
+    'billing.quarterly': 'Trimestral',
+    'billing.semiannual': 'Semestral',
+    'billing.annual': 'Anual',
+    'common.select': 'Seleccionar...',
+    'services.day': 'Día',
+
+    // Equipment
+    'equipment.title': 'Equipos',
+    'equipment.type': 'Tipo de Equipo',
+    'equipment.brand': 'Marca',
+    'equipment.model': 'Modelo',
+    'equipment.serial': 'Número de Serie',
+    'equipment.installDate': 'Fecha de Instalación',
+    'equipment.pump': 'Bomba',
+    'equipment.filter': 'Filtro',
+    'equipment.heater': 'Calentador',
+    'equipment.chlorinator': 'Clorador',
+    'equipment.automation': 'Automatización',
+    'equipment.cleaner': 'Limpiador',
+    'equipment.other': 'Otro',
+
+    // Rates
+    'rates.title': 'Tarifas y Servicios',
+    'rates.name': 'Nombre del Servicio',
+    'rates.amount': 'Monto',
+    'rates.frequency': 'Frecuencia',
+    'rates.addRate': 'Agregar Tarifa',
+
     // Navigation
     'nav.dashboard': 'Dashboard',
     'nav.services': 'Servicios',
     'nav.calendar': 'Calendario',
     'nav.clients': 'Clientes',
-    'nav.pools': 'Piscinas',
+    'nav.pools': 'Rutas',
+    'nav.routes': 'Rutas',
     'nav.chemicals': 'Químicos',
     'nav.inventory': 'Inventario',
     'nav.alerts': 'Alertas',
@@ -276,6 +460,7 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.profile': 'Perfil',
     'nav.logout': 'Cerrar Sesión',
     'nav.company': 'Empresa',
+    'nav.catalog': 'Catálogo',
 
     // Dashboard
     'dashboard.title': 'Dashboard',
@@ -458,6 +643,75 @@ const translations: Record<Language, Record<string, string>> = {
     'task.checkedEquipment': 'Equipo revisado',
     'task.backwashedFilter': 'Filtro lavado',
     'task.emptiedPumpBasket': 'Cesta de bomba vaciada',
+
+    // Portal
+    'portal.clientPortal': 'Portal del Cliente',
+    'portal.welcome': 'Bienvenido',
+    'portal.serviceHistory': 'Historial de Servicios',
+    'portal.billingHistory': 'Historial de Facturación',
+    'portal.yourEquipment': 'Tu Equipo',
+    'portal.recentServices': 'Servicios Recientes',
+    'portal.noServices': 'Aún no hay servicios registrados',
+    'portal.viewAll': 'Ver Todo',
+    'portal.amount': 'Monto',
+    'portal.status': 'Estado',
+    'portal.paid': 'Pagado',
+    'portal.pending': 'Pendiente',
+    'portal.overdue': 'Vencido',
+    'portal.contactProvider': 'Contacte a su proveedor de servicio de piscinas si necesita acceso.',
+
+    // Invoices
+    'nav.invoices': 'Facturas',
+    'invoices.title': 'Facturas',
+    'invoices.new': 'Nueva Factura',
+    'invoices.generateMonthly': 'Generar Mensual',
+    'invoices.client': 'Cliente',
+    'invoices.invoiceNumber': 'Factura #',
+    'invoices.issueDate': 'Fecha de Emisión',
+    'invoices.dueDate': 'Fecha de Vencimiento',
+    'invoices.total': 'Total',
+    'invoices.balanceDue': 'Saldo Pendiente',
+    'invoices.status': 'Estado',
+    'invoices.draft': 'Borrador',
+    'invoices.sent': 'Enviada',
+    'invoices.paid': 'Pagada',
+    'invoices.overdue': 'Vencida',
+    'invoices.cancelled': 'Cancelada',
+    'invoices.noInvoices': 'No se encontraron facturas',
+    'invoices.createFirst': 'Crea tu primera factura',
+    'invoices.markAsSent': 'Marcar como Enviada',
+    'invoices.recordPayment': 'Registrar Pago',
+    'invoices.viewDetails': 'Ver Detalles',
+    'invoices.delete': 'Eliminar',
+    'invoices.outstanding': 'Pendiente',
+    'invoices.paidThisMonth': 'Pagado Este Mes',
+    'invoices.allStatuses': 'Todos los Estados',
+    'invoices.selectClient': 'Seleccionar Cliente',
+    'invoices.items': 'Artículos',
+    'invoices.description': 'Descripción',
+    'invoices.quantity': 'Cant',
+    'invoices.unitPrice': 'Precio Unitario',
+    'invoices.amount': 'Monto',
+    'invoices.subtotal': 'Subtotal',
+    'invoices.tax': 'Impuesto',
+    'invoices.addItem': 'Agregar Artículo',
+    'invoices.notes': 'Notas',
+    'invoices.terms': 'Términos',
+    'invoices.generateFromRates': 'Generar desde Tarifas',
+    'invoices.paymentAmount': 'Monto del Pago',
+    'invoices.paymentMethod': 'Método de Pago',
+    'invoices.paymentDate': 'Fecha de Pago',
+    'invoices.cash': 'Efectivo',
+    'invoices.check': 'Cheque',
+    'invoices.card': 'Tarjeta de Crédito/Débito',
+    'invoices.transfer': 'Transferencia Bancaria',
+    'invoices.other': 'Otro',
+    'invoices.confirmDelete': '¿Está seguro de que desea eliminar esta factura?',
+    'invoices.settings': 'Configuración de Facturas',
+    'invoices.prefix': 'Prefijo de Factura',
+    'invoices.defaultDueDays': 'Días de Vencimiento',
+    'invoices.defaultTaxRate': 'Tasa de Impuesto (%)',
+    'invoices.generateSuccess': 'Facturas generadas exitosamente',
   },
 };
 
@@ -465,25 +719,46 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>('en');
+  const [isClient, setIsClient] = useState(false);
 
+  // Handle client-side initialization
   useEffect(() => {
-    const saved = localStorage.getItem('language') as Language;
-    if (saved && (saved === 'en' || saved === 'es')) {
-      setLanguageState(saved);
+    setIsClient(true);
+    try {
+      const saved = localStorage.getItem('language');
+      if (saved === 'en' || saved === 'es') {
+        setLanguageState(saved);
+      } else {
+        localStorage.setItem('language', 'en');
+      }
+    } catch (e) {
+      // localStorage not available
     }
   }, []);
 
   const setLanguage = (lang: Language) => {
+    console.log('LanguageContext: Setting language to', lang);
     setLanguageState(lang);
-    localStorage.setItem('language', lang);
+    try {
+      localStorage.setItem('language', lang);
+    } catch (e) {
+      // localStorage not available
+    }
   };
 
   const t = (key: string): string => {
     return translations[language][key] || key;
   };
 
+  // Force re-render on language change by including language in the value
+  const value = {
+    language,
+    setLanguage,
+    t,
+  };
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={value}>
       {children}
     </LanguageContext.Provider>
   );

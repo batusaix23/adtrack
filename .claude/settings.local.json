@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(copy:*)",
+      "Bash(cmd /c \"copy backend\\\\.env.example backend\\\\.env\")",
+      "Bash(npm install:*)",
+      "Bash(node scripts/init-db.js:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(psql:*)",
+      "Bash(where:*)",
+      "Bash(node -e:*)",
+      "Bash(curl:*)",
+      "Bash(tasklist:*)",
+      "Bash(cmd.exe /c \"netstat -ano | findstr :3001\")",
+      "Bash(netstat:*)",
+      "Bash(lsof:*)",
+      "Bash(echo:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(railway up:*)",
+      "Bash(railway connect:*)",
+      "Bash(npm run build:*)",
+      "Bash(railway status:*)",
+      "Bash(railway service:*)",
+      "Bash(railway unlink:*)",
+      "Bash(railway link:*)",
+      "Bash(railway logs:*)",
+      "Bash(railway domain:*)",
+      "Bash(railway redeploy:*)"
+    ]
+  }
+}

@@ -15,21 +15,11 @@ import {
   CalendarIcon,
   Cog6ToothIcon,
   CubeIcon,
+  DocumentTextIcon,
+  TagIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/contexts/AuthContext';
-
-const adminNavigation = [
-  { name: 'Dashboard', href: '/admin', icon: HomeIcon },
-  { name: 'Servicios', href: '/admin/services', icon: ClipboardDocumentListIcon },
-  { name: 'Calendario', href: '/admin/calendar', icon: CalendarIcon },
-  { name: 'Clientes', href: '/admin/clients', icon: UsersIcon },
-  { name: 'Piscinas', href: '/admin/pools', icon: BuildingOfficeIcon },
-  { name: 'Químicos', href: '/admin/chemicals', icon: BeakerIcon },
-  { name: 'Inventario', href: '/admin/inventory', icon: CubeIcon },
-  { name: 'Alertas', href: '/admin/alerts', icon: BellIcon },
-  { name: 'Analíticas', href: '/admin/analytics', icon: ChartBarIcon },
-  { name: 'Configuración', href: '/admin/settings', icon: Cog6ToothIcon },
-];
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -39,6 +29,28 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { t } = useLanguage();
+
+  const adminNavigation = [
+    { name: t('nav.dashboard'), href: '/admin', icon: HomeIcon },
+    { name: t('nav.services'), href: '/admin/services', icon: ClipboardDocumentListIcon },
+    { name: t('nav.calendar'), href: '/admin/calendar', icon: CalendarIcon },
+    { name: t('nav.clients'), href: '/admin/clients', icon: UsersIcon },
+    { name: t('nav.pools'), href: '/admin/pools', icon: BuildingOfficeIcon },
+    { name: t('nav.catalog'), href: '/admin/catalog', icon: TagIcon },
+    { name: t('nav.invoices'), href: '/admin/invoices', icon: DocumentTextIcon },
+    { name: t('nav.chemicals'), href: '/admin/chemicals', icon: BeakerIcon },
+    { name: t('nav.inventory'), href: '/admin/inventory', icon: CubeIcon },
+    { name: t('nav.alerts'), href: '/admin/alerts', icon: BellIcon },
+    { name: t('nav.analytics'), href: '/admin/analytics', icon: ChartBarIcon },
+    { name: t('nav.settings'), href: '/admin/settings', icon: Cog6ToothIcon },
+  ];
+
+  const getRoleLabel = (role: string | undefined) => {
+    if (role === 'owner') return t('role.owner') || 'Owner';
+    if (role === 'admin') return 'Admin';
+    return t('role.technician') || 'Technician';
+  };
 
   return (
     <>
@@ -69,7 +81,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Company info */}
         <div className="px-4 py-3 border-b border-gray-200">
-          <p className="text-xs text-gray-500">Empresa</p>
+          <p className="text-xs text-gray-500">{t('nav.company')}</p>
           <p className="text-sm font-medium text-gray-900 truncate">
             {user?.companyName}
           </p>
@@ -83,7 +95,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
             return (
               <Link
-                key={item.name}
+                key={item.href}
                 href={item.href}
                 onClick={onClose}
                 className={clsx(
@@ -118,7 +130,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 {user?.firstName} {user?.lastName}
               </p>
               <p className="text-xs text-gray-500 capitalize">
-                {user?.role === 'owner' ? 'Propietario' : user?.role === 'admin' ? 'Admin' : 'Técnico'}
+                {getRoleLabel(user?.role)}
               </p>
             </div>
           </div>
