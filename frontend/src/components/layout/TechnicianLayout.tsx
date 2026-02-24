@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useTechnicianAuth } from '@/contexts/TechnicianAuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from './BottomNav';
@@ -21,7 +21,7 @@ export function TechnicianLayout({
   showBack = false,
   onBack,
 }: TechnicianLayoutProps) {
-  const { user, loading, logout } = useAuth();
+  const { technician, loading, logout } = useTechnicianAuth();
   const { language, setLanguage } = useLanguage();
   const router = useRouter();
 
@@ -33,8 +33,8 @@ export function TechnicianLayout({
     return <LoadingScreen />;
   }
 
-  if (!user) {
-    router.push('/login');
+  if (!technician) {
+    router.push('/technician/login');
     return null;
   }
 

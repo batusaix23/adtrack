@@ -7,39 +7,56 @@ import { TechnicianLayout } from '@/components/layout/TechnicianLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/Badge';
-import { fetcher } from '@/lib/api';
+import api from '@/lib/api';
 import {
   CalendarIcon,
   MapPinIcon,
   ClockIcon,
 } from '@heroicons/react/24/outline';
 
+// Custom fetcher that uses technician token
+const techFetcher = async (url: string) => {
+  const token = localStorage.getItem('technicianAccessToken');
+  const res = await api.get(url, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return res.data;
+};
+
 interface Service {
   id: string;
   pool_name: string;
-  client_name: string;
+  client_first_name: string;
+  client_last_name: string;
   scheduled_date: string;
-  scheduled_time: string;
+  arrival_time: string;
   status: string;
-  ph_level: number;
-  chlorine_level: number;
+  reading_ph: number;
+  reading_chlorine: number;
   duration_minutes: number;
 }
 
 export default function TechnicianServicesPage() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useSWR('/services?limit=50', fetcher);
+  // Get recent services for this technician
+  const { data, isLoading } = useSWR(
+    `/technician-portal/services?page=${page}&limit=20`,
+    techFetcher
+  );
 
-  const filteredServices = data?.services?.filter((s: Service) => {
+  const services = data?.services || [];
+
+  const filteredServices = services.filter((s: Service) => {
     if (filter === 'pending') return s.status === 'pending' || s.status === 'in_progress';
     if (filter === 'completed') return s.status === 'completed';
     return true;
-  }) || [];
+  });
 
   // Group by date
   const groupedServices = filteredServices.reduce((acc: Record<string, Service[]>, service: Service) => {
-    const date = service.scheduled_date;
+    const date = service.scheduled_date?.split('T')[0] || 'unknown';
     if (!acc[date]) acc[date] = [];
     acc[date].push(service);
     return acc;
@@ -111,14 +128,16 @@ export default function TechnicianServicesPage() {
                       <Card className="hover:shadow-md transition-shadow">
                         <div className="flex justify-between items-start">
                           <div>
-                            <h4 className="font-medium text-gray-900">{service.pool_name}</h4>
-                            <p className="text-sm text-gray-500">{service.client_name}</p>
+                            <h4 className="font-medium text-gray-900">{service.pool_name || 'Piscina'}</h4>
+                            <p className="text-sm text-gray-500">
+                              {service.client_first_name} {service.client_last_name}
+                            </p>
 
                             <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                              {service.scheduled_time && (
+                              {service.arrival_time && (
                                 <span className="flex items-center gap-1">
                                   <ClockIcon className="h-4 w-4" />
-                                  {service.scheduled_time.slice(0, 5)}
+                                  {new Date(service.arrival_time).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                               )}
                               {service.duration_minutes && (
@@ -128,9 +147,9 @@ export default function TechnicianServicesPage() {
                           </div>
                           <div className="text-right">
                             <StatusBadge status={service.status} />
-                            {service.status === 'completed' && service.ph_level && (
+                            {service.status === 'completed' && service.reading_ph && (
                               <p className="text-xs text-gray-500 mt-2">
-                                pH: {Number(service.ph_level).toFixed(1)}
+                                pH: {Number(service.reading_ph).toFixed(1)}
                               </p>
                             )}
                           </div>

@@ -7,15 +7,33 @@ import { TechnicianLayout } from '@/components/layout/TechnicianLayout';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { fetcher } from '@/lib/api';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import {
   PlayIcon,
   CheckIcon,
   CameraIcon,
-  PencilIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
+
+// Custom fetcher that uses technician token
+const techFetcher = async (url: string) => {
+  const token = localStorage.getItem('technicianAccessToken');
+  const res = await api.get(url, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return res.data;
+};
+
+// Helper for technician API calls
+const techApi = {
+  post: async (url: string, data: any) => {
+    const token = localStorage.getItem('technicianAccessToken');
+    return api.post(url, data, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  }
+};
 
 interface Chemical {
   id: string;
@@ -28,8 +46,8 @@ export default function ServicePage() {
   const router = useRouter();
   const serviceId = params.id as string;
 
-  const { data: serviceData, mutate } = useSWR(`/services/${serviceId}`, fetcher);
-  const { data: chemicalsData } = useSWR('/chemicals', fetcher);
+  const { data: serviceData, mutate } = useSWR(`/technician-portal/service/${serviceId}`, techFetcher);
+  const { data: chemicalsData } = useSWR('/technician-portal/chemicals', techFetcher);
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -72,7 +90,8 @@ export default function ServicePage() {
   const startService = async () => {
     setLoading(true);
     try {
-      await api.post(`/services/${serviceId}/start`, {
+      await techApi.post('/technician-portal/service/start', {
+        serviceRecordId: serviceId,
         latitude: location?.latitude,
         longitude: location?.longitude,
       });
@@ -85,6 +104,27 @@ export default function ServicePage() {
     }
   };
 
+  const skipService = async () => {
+    const reason = prompt('Razón para saltar el servicio:');
+    if (!reason) return;
+
+    setLoading(true);
+    try {
+      await techApi.post('/technician-portal/service/skip', {
+        serviceRecordId: serviceId,
+        reason,
+        latitude: location?.latitude,
+        longitude: location?.longitude,
+      });
+      toast.success('Servicio saltado');
+      router.push('/technician');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Error al saltar servicio');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const completeService = async () => {
     setLoading(true);
     try {
@@ -92,16 +132,26 @@ export default function ServicePage() {
         .filter(([_, qty]) => qty > 0)
         .map(([chemicalId, quantity]) => ({ chemicalId, quantity }));
 
-      await api.post(`/services/${serviceId}/complete`, {
-        ...formData,
-        phLevel: parseFloat(formData.phLevel) || null,
-        chlorineLevel: parseFloat(formData.chlorineLevel) || null,
-        alkalinity: parseFloat(formData.alkalinity) || null,
-        saltLevel: parseFloat(formData.saltLevel) || null,
-        waterTemperature: parseFloat(formData.waterTemperature) || null,
+      await techApi.post('/technician-portal/service/complete', {
+        serviceRecordId: serviceId,
+        readings: {
+          phLevel: parseFloat(formData.phLevel) || null,
+          chlorineLevel: parseFloat(formData.chlorineLevel) || null,
+          alkalinity: parseFloat(formData.alkalinity) || null,
+          saltLevel: parseFloat(formData.saltLevel) || null,
+          waterTemperature: parseFloat(formData.waterTemperature) || null,
+        },
+        checklist: {
+          skimmedSurface: formData.skimmedSurface,
+          brushedWalls: formData.brushedWalls,
+          vacuumedPool: formData.vacuumedPool,
+          cleanedSkimmer: formData.cleanedSkimmer,
+          checkedEquipment: formData.checkedEquipment,
+          backwashedFilter: formData.backwashedFilter,
+          emptiedPumpBasket: formData.emptiedPumpBasket,
+        },
         chemicals,
-        signature,
-        signatureName,
+        notes: formData.notes,
         latitude: location?.latitude,
         longitude: location?.longitude,
       });
@@ -158,15 +208,27 @@ export default function ServicePage() {
 
         {/* Start Button (if pending) */}
         {service.status === 'pending' && (
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={startService}
-            loading={loading}
-            icon={<PlayIcon className="h-5 w-5" />}
-          >
-            Iniciar Servicio
-          </Button>
+          <div className="space-y-3">
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={startService}
+              loading={loading}
+              icon={<PlayIcon className="h-5 w-5" />}
+            >
+              Iniciar Servicio
+            </Button>
+            <Button
+              className="w-full"
+              size="lg"
+              variant="secondary"
+              onClick={skipService}
+              loading={loading}
+              icon={<XMarkIcon className="h-5 w-5" />}
+            >
+              Saltar Servicio
+            </Button>
+          </div>
         )}
 
         {/* Service Form (if in progress) */}

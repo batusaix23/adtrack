@@ -5,10 +5,11 @@ import { TechnicianLayout } from '@/components/layout/TechnicianLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
-import { useAuth } from '@/contexts/AuthContext';
+import { useTechnicianAuth } from '@/contexts/TechnicianAuthContext';
 import {
   UserCircleIcon,
   EnvelopeIcon,
+  PhoneIcon,
   BuildingOfficeIcon,
   ArrowRightOnRectangleIcon,
   BellIcon,
@@ -17,7 +18,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function ProfilePage() {
-  const { user, logout } = useAuth();
+  const { technician, logout } = useTechnicianAuth();
 
   const menuItems = [
     { icon: BellIcon, label: 'Notificaciones', href: '/technician/settings/notifications' },
@@ -32,14 +33,14 @@ export default function ProfilePage() {
         <Card className="text-center">
           <div className="flex flex-col items-center">
             <Avatar
-              name={`${user?.firstName} ${user?.lastName}`}
+              name={`${technician?.firstName} ${technician?.lastName}`}
               size="xl"
             />
             <h2 className="mt-4 text-xl font-semibold text-gray-900">
-              {user?.firstName} {user?.lastName}
+              {technician?.firstName} {technician?.lastName}
             </h2>
             <p className="text-gray-500 capitalize">
-              {user?.role === 'technician' ? 'Técnico' : user?.role}
+              Técnico
             </p>
           </div>
         </Card>
@@ -51,15 +52,25 @@ export default function ProfilePage() {
               <EnvelopeIcon className="h-5 w-5 text-gray-400" />
               <div>
                 <p className="text-sm text-gray-500">Email</p>
-                <p className="text-gray-900">{user?.email}</p>
+                <p className="text-gray-900">{technician?.email}</p>
               </div>
             </div>
+
+            {technician?.phone && (
+              <div className="flex items-center gap-3">
+                <PhoneIcon className="h-5 w-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-500">Teléfono</p>
+                  <p className="text-gray-900">{technician?.phone}</p>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-3">
               <BuildingOfficeIcon className="h-5 w-5 text-gray-400" />
               <div>
                 <p className="text-sm text-gray-500">Empresa</p>
-                <p className="text-gray-900">{user?.companyName}</p>
+                <p className="text-gray-900">{technician?.companyName}</p>
               </div>
             </div>
           </div>

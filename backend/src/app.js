@@ -45,6 +45,7 @@ const platformRoutes = require('./routes/platform');
 const serviceItemsRoutes = require('./routes/serviceItems');
 const techniciansRoutes = require('./routes/technicians');
 const estimatesRoutes = require('./routes/estimates');
+const technicianPortalRoutes = require('./routes/technicianPortal');
 
 const app = express();
 
@@ -136,6 +137,7 @@ app.use('/api/platform', platformRoutes);
 app.use('/api/service-items', serviceItemsRoutes);
 app.use('/api/technicians', techniciansRoutes);
 app.use('/api/estimates', estimatesRoutes);
+app.use('/api/technician-portal', technicianPortalRoutes);
 
 // 404 handler
 app.use((req, res) => {
