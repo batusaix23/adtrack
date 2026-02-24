@@ -110,17 +110,51 @@ router.get('/:id', authenticate, async (req, res, next) => {
 // Create client
 router.post('/', authenticate, authorizeRoles('owner', 'admin'), async (req, res, next) => {
   try {
-    const { name, lastName, companyName, email, phone, address, city, state, zipCode, notes, billingEmail, serviceDay, serviceFrequency, clientType } = req.body;
+    const {
+      firstName, lastName, companyName, email, phone, phoneSecondary,
+      address, addressLine2, city, state, zipCode,
+      billingAddress, billingCity, billingState, billingZip, billingEmail,
+      clientType, serviceFrequency, serviceDays, preferredTime,
+      monthlyServiceCost, stabilizerCost, stabilizerFrequencyMonths,
+      gateCode, accessNotes, notes, internalNotes,
+      autopayEnabled, portalEnabled,
+      // Legacy support
+      name
+    } = req.body;
 
-    if (!name) {
+    const clientFirstName = firstName || name;
+    if (!clientFirstName) {
       return res.status(400).json({ error: 'El nombre es requerido' });
     }
 
+    if (!address) {
+      return res.status(400).json({ error: 'La dirección es requerida' });
+    }
+
     const result = await query(
-      `INSERT INTO clients (company_id, name, last_name, company_name, email, phone, address, city, state, zip_code, notes, billing_email, service_day, service_frequency, client_type)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      `INSERT INTO clients (
+        company_id, first_name, last_name, company_name, email, phone, phone_secondary,
+        address, address_line2, city, state, zip_code,
+        billing_address, billing_city, billing_state, billing_zip, billing_email,
+        client_type, service_frequency, service_days, preferred_time,
+        monthly_service_cost, stabilizer_cost, stabilizer_frequency_months,
+        gate_code, access_notes, notes, internal_notes,
+        autopay_enabled, portal_enabled,
+        name, status
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, 'active')
        RETURNING *`,
-      [req.user.company_id, name, lastName, companyName, email, phone, address, city, state, zipCode, notes, billingEmail, serviceDay, serviceFrequency || 1, clientType || 'residential']
+      [
+        req.user.company_id, clientFirstName, lastName, companyName, email, phone, phoneSecondary,
+        address, addressLine2, city, state, zipCode,
+        billingAddress, billingCity, billingState, billingZip, billingEmail,
+        clientType || 'residential', serviceFrequency || '1x_week',
+        JSON.stringify(serviceDays || []), preferredTime,
+        monthlyServiceCost, stabilizerCost, stabilizerFrequencyMonths || 3,
+        gateCode, accessNotes, notes, internalNotes,
+        autopayEnabled || false, portalEnabled || false,
+        clientFirstName
+      ]
     );
 
     res.status(201).json({ client: result.rows[0] });
@@ -132,28 +166,74 @@ router.post('/', authenticate, authorizeRoles('owner', 'admin'), async (req, res
 // Update client
 router.put('/:id', authenticate, authorizeRoles('owner', 'admin'), async (req, res, next) => {
   try {
-    const { name, lastName, companyName, email, phone, address, city, state, zipCode, notes, billingEmail, isActive, serviceDay, serviceFrequency, clientType } = req.body;
+    const {
+      firstName, lastName, companyName, email, phone, phoneSecondary,
+      address, addressLine2, city, state, zipCode,
+      billingAddress, billingCity, billingState, billingZip, billingEmail,
+      clientType, serviceFrequency, serviceDays, preferredTime,
+      monthlyServiceCost, stabilizerCost, stabilizerFrequencyMonths,
+      gateCode, accessNotes, notes, internalNotes,
+      autopayEnabled, portalEnabled, status, isActive,
+      assignedTechnicianId,
+      // Legacy
+      name, serviceDay
+    } = req.body;
+
+    const clientFirstName = firstName || name;
 
     const result = await query(
       `UPDATE clients
-       SET name = COALESCE($1, name),
+       SET first_name = COALESCE($1, first_name),
            last_name = COALESCE($2, last_name),
            company_name = COALESCE($3, company_name),
            email = COALESCE($4, email),
            phone = COALESCE($5, phone),
-           address = COALESCE($6, address),
-           city = COALESCE($7, city),
-           state = COALESCE($8, state),
-           zip_code = COALESCE($9, zip_code),
-           notes = COALESCE($10, notes),
-           billing_email = COALESCE($11, billing_email),
-           is_active = COALESCE($12, is_active),
-           service_day = COALESCE($13, service_day),
-           service_frequency = COALESCE($14, service_frequency),
-           client_type = COALESCE($15, client_type)
-       WHERE id = $16 AND company_id = $17
+           phone_secondary = COALESCE($6, phone_secondary),
+           address = COALESCE($7, address),
+           address_line2 = COALESCE($8, address_line2),
+           city = COALESCE($9, city),
+           state = COALESCE($10, state),
+           zip_code = COALESCE($11, zip_code),
+           billing_address = COALESCE($12, billing_address),
+           billing_city = COALESCE($13, billing_city),
+           billing_state = COALESCE($14, billing_state),
+           billing_zip = COALESCE($15, billing_zip),
+           billing_email = COALESCE($16, billing_email),
+           client_type = COALESCE($17, client_type),
+           service_frequency = COALESCE($18, service_frequency),
+           service_days = COALESCE($19, service_days),
+           preferred_time = COALESCE($20, preferred_time),
+           monthly_service_cost = COALESCE($21, monthly_service_cost),
+           stabilizer_cost = COALESCE($22, stabilizer_cost),
+           stabilizer_frequency_months = COALESCE($23, stabilizer_frequency_months),
+           gate_code = COALESCE($24, gate_code),
+           access_notes = COALESCE($25, access_notes),
+           notes = COALESCE($26, notes),
+           internal_notes = COALESCE($27, internal_notes),
+           autopay_enabled = COALESCE($28, autopay_enabled),
+           portal_enabled = COALESCE($29, portal_enabled),
+           status = COALESCE($30, status),
+           is_active = COALESCE($31, is_active),
+           assigned_technician_id = $32,
+           name = COALESCE($1, name),
+           service_day = COALESCE($33, service_day),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $34 AND company_id = $35
        RETURNING *`,
-      [name, lastName, companyName, email, phone, address, city, state, zipCode, notes, billingEmail, isActive, serviceDay, serviceFrequency, clientType, req.params.id, req.user.company_id]
+      [
+        clientFirstName, lastName, companyName, email, phone, phoneSecondary,
+        address, addressLine2, city, state, zipCode,
+        billingAddress, billingCity, billingState, billingZip, billingEmail,
+        clientType, serviceFrequency,
+        serviceDays ? JSON.stringify(serviceDays) : null,
+        preferredTime,
+        monthlyServiceCost, stabilizerCost, stabilizerFrequencyMonths,
+        gateCode, accessNotes, notes, internalNotes,
+        autopayEnabled, portalEnabled, status, isActive,
+        assignedTechnicianId || null,
+        serviceDay,
+        req.params.id, req.user.company_id
+      ]
     );
 
     if (result.rows.length === 0) {

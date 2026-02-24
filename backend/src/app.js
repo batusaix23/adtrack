@@ -43,6 +43,8 @@ const portalRoutes = require('./routes/portal');
 const invoiceRoutes = require('./routes/invoices');
 const platformRoutes = require('./routes/platform');
 const serviceItemsRoutes = require('./routes/serviceItems');
+const techniciansRoutes = require('./routes/technicians');
+const estimatesRoutes = require('./routes/estimates');
 
 const app = express();
 
@@ -132,6 +134,8 @@ app.use('/api/portal', portalRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/platform', platformRoutes);
 app.use('/api/service-items', serviceItemsRoutes);
+app.use('/api/technicians', techniciansRoutes);
+app.use('/api/estimates', estimatesRoutes);
 
 // 404 handler
 app.use((req, res) => {
