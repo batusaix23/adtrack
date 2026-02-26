@@ -135,7 +135,7 @@ export default function PortalBillingPage() {
             {language === 'es' ? 'Costo Mensual de Servicio' : 'Monthly Service Cost'}
           </p>
           <p className="text-4xl font-bold mt-1">
-            {formatCurrency(profile?.monthly_service_cost)}
+            {formatCurrency(profile?.monthly_service_cost ?? 0)}
           </p>
           {profile?.stabilizer_cost && profile?.stabilizer_frequency_months && (
             <p className="text-primary-200 text-sm mt-2">
