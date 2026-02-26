@@ -366,7 +366,26 @@ async function runMigrations() {
       'internal_notes TEXT',
       'default_payment_method VARCHAR(50)',
       'latitude DECIMAL(10, 8)',
-      'longitude DECIMAL(11, 8)'
+      'longitude DECIMAL(11, 8)',
+      // Zoho-style contact fields
+      'salutation VARCHAR(10)',
+      'display_name VARCHAR(255)',
+      'mobile VARCHAR(20)',
+      'website VARCHAR(255)',
+      'tax_id VARCHAR(50)',
+      // Payment terms
+      'payment_terms VARCHAR(50) DEFAULT \'net_30\'',
+      'credit_limit DECIMAL(10,2)',
+      'currency VARCHAR(3) DEFAULT \'USD\'',
+      // Shipping address
+      'shipping_address TEXT',
+      'shipping_city VARCHAR(100)',
+      'shipping_state VARCHAR(50)',
+      'shipping_zip VARCHAR(20)',
+      'shipping_country VARCHAR(100) DEFAULT \'Puerto Rico\'',
+      // Portal language
+      'portal_language VARCHAR(5) DEFAULT \'es\'',
+      'billing_country VARCHAR(100) DEFAULT \'Puerto Rico\''
     ];
 
     for (const col of clientColumns) {
@@ -894,6 +913,10 @@ async function runMigrations() {
         terms TEXT,
         footer TEXT,
 
+        -- Adjustments
+        adjustment_description VARCHAR(255),
+        adjustment_amount DECIMAL(10,2) DEFAULT 0,
+
         -- From Estimate
         estimate_id UUID REFERENCES estimates(id),
 
@@ -905,6 +928,18 @@ async function runMigrations() {
       )
     `);
 
+    // Add missing columns to invoices
+    const invoiceColumns = [
+      'adjustment_description VARCHAR(255)',
+      'adjustment_amount DECIMAL(10,2) DEFAULT 0'
+    ];
+
+    for (const col of invoiceColumns) {
+      try {
+        await query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS ${col}`);
+      } catch (e) { /* column exists */ }
+    }
+
     await query(`
       CREATE TABLE IF NOT EXISTS invoice_items (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -914,15 +949,29 @@ async function runMigrations() {
         quantity DECIMAL(10,2) DEFAULT 1,
         unit_price DECIMAL(10,2) NOT NULL,
         tax_rate DECIMAL(5,2) DEFAULT 0,
+        discount_percent DECIMAL(5,2) DEFAULT 0,
+        discount_amount DECIMAL(10,2) DEFAULT 0,
         amount DECIMAL(10,2) NOT NULL,
 
         service_record_id UUID REFERENCES service_records(id),
-        service_item_id UUID,
+        service_item_id UUID REFERENCES service_items(id),
 
         sort_order INTEGER DEFAULT 0,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Add missing columns to invoice_items
+    const invoiceItemColumns = [
+      'discount_percent DECIMAL(5,2) DEFAULT 0',
+      'discount_amount DECIMAL(10,2) DEFAULT 0'
+    ];
+
+    for (const col of invoiceItemColumns) {
+      try {
+        await query(`ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS ${col}`);
+      } catch (e) { /* column exists */ }
+    }
 
     await query(`
       CREATE TABLE IF NOT EXISTS invoice_settings (
@@ -1023,11 +1072,13 @@ async function runMigrations() {
         company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
 
         name VARCHAR(255) NOT NULL,
+        sku VARCHAR(100),
         description TEXT,
-        item_type VARCHAR(20) DEFAULT 'service',
+        item_type VARCHAR(50) DEFAULT 'service',
         category VARCHAR(100),
 
         base_price DECIMAL(10,2) NOT NULL,
+        cost_price DECIMAL(10,2),
         unit VARCHAR(50) DEFAULT 'unit',
         tax_rate DECIMAL(5,2) DEFAULT 0,
 
@@ -1036,6 +1087,18 @@ async function runMigrations() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Add missing columns to service_items
+    const serviceItemColumns = [
+      'sku VARCHAR(100)',
+      'cost_price DECIMAL(10,2)'
+    ];
+
+    for (const col of serviceItemColumns) {
+      try {
+        await query(`ALTER TABLE service_items ADD COLUMN IF NOT EXISTS ${col}`);
+      } catch (e) { /* column exists */ }
+    }
 
     await query(`
       CREATE TABLE IF NOT EXISTS client_service_items (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import axios from 'axios';
 import {
@@ -17,19 +17,23 @@ import {
   Cog6ToothIcon,
   XMarkIcon,
   ArrowPathIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
 
 interface Invoice {
   id: string;
   invoice_number: string;
   client_id: string;
-  client_name: string;
+  client_first_name: string;
   client_last_name: string;
   client_email: string;
   status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
   subtotal: string;
   tax_rate: string;
   tax_amount: string;
+  discount_amount: string;
+  adjustment_amount: string;
+  adjustment_description: string;
   total: string;
   amount_paid: string;
   balance_due: string;
@@ -46,14 +50,31 @@ interface InvoiceItem {
   description: string;
   quantity: string;
   unit_price: string;
+  discount_percent: string;
+  discount_amount: string;
   amount: string;
+  service_item_id: string | null;
 }
 
 interface Client {
   id: string;
-  name: string;
+  first_name: string;
   last_name: string;
+  display_name: string;
   email: string;
+  monthly_service_cost: string;
+}
+
+interface ServiceItem {
+  id: string;
+  name: string;
+  sku: string;
+  description: string;
+  item_type: string;
+  category: string;
+  base_price: string;
+  unit: string;
+  tax_rate: string;
 }
 
 interface Stats {
@@ -65,8 +86,16 @@ interface Stats {
   paid_this_month: string;
 }
 
+interface NewItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  discountPercent: number;
+  serviceItemId: string | null;
+}
+
 export default function InvoicesPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -85,10 +114,21 @@ export default function InvoicesPage() {
 
   // New invoice form
   const [newInvoiceClient, setNewInvoiceClient] = useState('');
-  const [newInvoiceItems, setNewInvoiceItems] = useState([{ description: '', quantity: 1, unitPrice: 0 }]);
+  const [newInvoiceItems, setNewInvoiceItems] = useState<NewItem[]>([
+    { description: '', quantity: 1, unitPrice: 0, discountPercent: 0, serviceItemId: null }
+  ]);
   const [newInvoiceTaxRate, setNewInvoiceTaxRate] = useState(0);
+  const [newInvoiceDiscount, setNewInvoiceDiscount] = useState(0);
+  const [newInvoiceAdjustment, setNewInvoiceAdjustment] = useState(0);
+  const [newInvoiceAdjustmentDesc, setNewInvoiceAdjustmentDesc] = useState('');
   const [newInvoiceNotes, setNewInvoiceNotes] = useState('');
   const [newInvoiceDueDate, setNewInvoiceDueDate] = useState('');
+
+  // Item search
+  const [itemSearchQuery, setItemSearchQuery] = useState('');
+  const [itemSearchResults, setItemSearchResults] = useState<ServiceItem[]>([]);
+  const [activeItemIndex, setActiveItemIndex] = useState<number | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Payment form
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -128,13 +168,54 @@ export default function InvoicesPage() {
     }
   };
 
+  const searchItems = async (query: string) => {
+    if (query.length < 2) {
+      setItemSearchResults([]);
+      return;
+    }
+
+    try {
+      const res = await axios.get(`${apiUrl}/service-items/search?q=${encodeURIComponent(query)}`, getAuthHeaders());
+      setItemSearchResults(res.data.items || []);
+    } catch (error) {
+      console.error('Error searching items:', error);
+    }
+  };
+
+  const handleItemSearch = (query: string, itemIndex: number) => {
+    setItemSearchQuery(query);
+    setActiveItemIndex(itemIndex);
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      searchItems(query);
+    }, 300);
+  };
+
+  const selectServiceItem = (serviceItem: ServiceItem, itemIndex: number) => {
+    const updated = [...newInvoiceItems];
+    updated[itemIndex] = {
+      ...updated[itemIndex],
+      description: serviceItem.name,
+      unitPrice: Number(serviceItem.base_price),
+      serviceItemId: serviceItem.id,
+    };
+    setNewInvoiceItems(updated);
+    setItemSearchResults([]);
+    setActiveItemIndex(null);
+    setItemSearchQuery('');
+  };
+
   const formatCurrency = (amount: string | number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount));
   };
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return new Date(dateStr).toLocaleDateString('es-PR', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const getStatusColor = (status: string) => {
@@ -149,7 +230,15 @@ export default function InvoicesPage() {
   };
 
   const getStatusLabel = (status: string) => {
-    return t(`invoices.${status}`) || status;
+    const labels: Record<string, string> = {
+      draft: 'Borrador',
+      sent: 'Enviado',
+      paid: 'Pagado',
+      overdue: 'Vencido',
+      partial: 'Parcial',
+      cancelled: 'Cancelado',
+    };
+    return labels[status] || status;
   };
 
   const handleCreateInvoice = async () => {
@@ -163,8 +252,13 @@ export default function InvoicesPage() {
           description: item.description,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          discountPercent: item.discountPercent,
+          serviceItemId: item.serviceItemId,
         })),
         taxRate: newInvoiceTaxRate,
+        discountAmount: newInvoiceDiscount,
+        adjustmentAmount: newInvoiceAdjustment,
+        adjustmentDescription: newInvoiceAdjustmentDesc,
         notes: newInvoiceNotes,
         dueDate: newInvoiceDueDate || undefined,
       }, getAuthHeaders());
@@ -191,7 +285,7 @@ export default function InvoicesPage() {
     setGeneratingMonthly(true);
     try {
       const result = await axios.post(`${apiUrl}/invoices/generate-monthly`, {}, getAuthHeaders());
-      alert(`${t('invoices.generateSuccess')}: ${result.data.totalGenerated} invoices`);
+      alert(`Facturas generadas: ${result.data.summary?.created || 0}`);
       fetchData();
     } catch (error) {
       console.error('Error generating monthly invoices:', error);
@@ -240,7 +334,7 @@ export default function InvoicesPage() {
   };
 
   const handleDeleteInvoice = async (invoiceId: string) => {
-    if (!confirm(t('invoices.confirmDelete'))) return;
+    if (!confirm('¿Eliminar esta factura?')) return;
 
     try {
       await axios.delete(`${apiUrl}/invoices/${invoiceId}`, getAuthHeaders());
@@ -252,14 +346,17 @@ export default function InvoicesPage() {
 
   const resetNewInvoiceForm = () => {
     setNewInvoiceClient('');
-    setNewInvoiceItems([{ description: '', quantity: 1, unitPrice: 0 }]);
+    setNewInvoiceItems([{ description: '', quantity: 1, unitPrice: 0, discountPercent: 0, serviceItemId: null }]);
     setNewInvoiceTaxRate(0);
+    setNewInvoiceDiscount(0);
+    setNewInvoiceAdjustment(0);
+    setNewInvoiceAdjustmentDesc('');
     setNewInvoiceNotes('');
     setNewInvoiceDueDate('');
   };
 
   const addItem = () => {
-    setNewInvoiceItems([...newInvoiceItems, { description: '', quantity: 1, unitPrice: 0 }]);
+    setNewInvoiceItems([...newInvoiceItems, { description: '', quantity: 1, unitPrice: 0, discountPercent: 0, serviceItemId: null }]);
   };
 
   const removeItem = (index: number) => {
@@ -272,8 +369,20 @@ export default function InvoicesPage() {
     setNewInvoiceItems(updated);
   };
 
+  const calculateLineTotal = (item: NewItem) => {
+    const subtotal = item.quantity * item.unitPrice;
+    const discount = subtotal * (item.discountPercent / 100);
+    return subtotal - discount;
+  };
+
   const calculateSubtotal = () => {
-    return newInvoiceItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    return newInvoiceItems.reduce((sum, item) => sum + calculateLineTotal(item), 0);
+  };
+
+  const calculateTotal = () => {
+    const subtotal = calculateSubtotal();
+    const tax = subtotal * (newInvoiceTaxRate / 100);
+    return subtotal + tax - newInvoiceDiscount + newInvoiceAdjustment;
   };
 
   if (loading) {
@@ -288,7 +397,7 @@ export default function InvoicesPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">{t('invoices.title')}</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Facturas</h1>
         <div className="flex gap-2">
           <button
             onClick={() => setShowSettingsModal(true)}
@@ -302,14 +411,14 @@ export default function InvoicesPage() {
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
           >
             <ArrowPathIcon className={`h-5 w-5 ${generatingMonthly ? 'animate-spin' : ''}`} />
-            {t('invoices.generateMonthly')}
+            Generar Mensual
           </button>
           <button
             onClick={() => setShowNewInvoice(true)}
             className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
           >
             <PlusIcon className="h-5 w-5" />
-            {t('invoices.new')}
+            Nueva Factura
           </button>
         </div>
       </div>
@@ -323,7 +432,7 @@ export default function InvoicesPage() {
                 <DocumentTextIcon className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">{t('invoices.draft')}</p>
+                <p className="text-sm text-gray-500">Borrador</p>
                 <p className="text-xl font-semibold">{stats.draft_count}</p>
               </div>
             </div>
@@ -334,7 +443,7 @@ export default function InvoicesPage() {
                 <ClockIcon className="h-5 w-5 text-yellow-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">{t('invoices.outstanding')}</p>
+                <p className="text-sm text-gray-500">Pendiente</p>
                 <p className="text-xl font-semibold">{formatCurrency(stats.total_outstanding)}</p>
               </div>
             </div>
@@ -345,7 +454,7 @@ export default function InvoicesPage() {
                 <ExclamationTriangleIcon className="h-5 w-5 text-red-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">{t('invoices.overdue')}</p>
+                <p className="text-sm text-gray-500">Vencidas</p>
                 <p className="text-xl font-semibold">{stats.overdue_count}</p>
               </div>
             </div>
@@ -356,7 +465,7 @@ export default function InvoicesPage() {
                 <CheckCircleIcon className="h-5 w-5 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">{t('invoices.paidThisMonth')}</p>
+                <p className="text-sm text-gray-500">Pagado este mes</p>
                 <p className="text-xl font-semibold">{formatCurrency(stats.paid_this_month)}</p>
               </div>
             </div>
@@ -371,21 +480,21 @@ export default function InvoicesPage() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
         >
-          <option value="">{t('invoices.allStatuses')}</option>
-          <option value="draft">{t('invoices.draft')}</option>
-          <option value="sent">{t('invoices.sent')}</option>
-          <option value="paid">{t('invoices.paid')}</option>
-          <option value="overdue">{t('invoices.overdue')}</option>
+          <option value="">Todos los estados</option>
+          <option value="draft">Borrador</option>
+          <option value="sent">Enviado</option>
+          <option value="paid">Pagado</option>
+          <option value="overdue">Vencido</option>
         </select>
         <select
           value={clientFilter}
           onChange={(e) => setClientFilter(e.target.value)}
           className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
         >
-          <option value="">{t('invoices.selectClient')}</option>
+          <option value="">Todos los clientes</option>
           {clients.map(client => (
             <option key={client.id} value={client.id}>
-              {client.name} {client.last_name}
+              {client.display_name || `${client.first_name} ${client.last_name}`}
             </option>
           ))}
         </select>
@@ -398,14 +507,14 @@ export default function InvoicesPage() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{t('invoices.invoiceNumber')}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{t('invoices.client')}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{t('invoices.issueDate')}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{t('invoices.dueDate')}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{t('invoices.total')}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{t('invoices.balanceDue')}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{t('invoices.status')}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{t('common.actions')}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Número</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Cliente</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Fecha</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Vencimiento</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Total</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Pendiente</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Estado</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -415,7 +524,7 @@ export default function InvoicesPage() {
                       <span className="font-medium text-primary-600">{invoice.invoice_number}</span>
                     </td>
                     <td className="px-4 py-3">
-                      {invoice.client_name} {invoice.client_last_name}
+                      {invoice.client_first_name} {invoice.client_last_name}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{formatDate(invoice.issue_date)}</td>
                     <td className="px-4 py-3 text-gray-600">{formatDate(invoice.due_date)}</td>
@@ -437,7 +546,7 @@ export default function InvoicesPage() {
                         <button
                           onClick={() => handleViewDetails(invoice)}
                           className="p-1 text-gray-500 hover:text-primary-600"
-                          title={t('invoices.viewDetails')}
+                          title="Ver detalles"
                         >
                           <EyeIcon className="h-5 w-5" />
                         </button>
@@ -445,7 +554,7 @@ export default function InvoicesPage() {
                           <button
                             onClick={() => handleMarkAsSent(invoice.id)}
                             className="p-1 text-gray-500 hover:text-blue-600"
-                            title={t('invoices.markAsSent')}
+                            title="Marcar como enviado"
                           >
                             <PaperAirplaneIcon className="h-5 w-5" />
                           </button>
@@ -458,7 +567,7 @@ export default function InvoicesPage() {
                               setShowPaymentModal(true);
                             }}
                             className="p-1 text-gray-500 hover:text-green-600"
-                            title={t('invoices.recordPayment')}
+                            title="Registrar pago"
                           >
                             <BanknotesIcon className="h-5 w-5" />
                           </button>
@@ -466,7 +575,7 @@ export default function InvoicesPage() {
                         <button
                           onClick={() => handleDeleteInvoice(invoice.id)}
                           className="p-1 text-gray-500 hover:text-red-600"
-                          title={t('invoices.delete')}
+                          title="Eliminar"
                         >
                           <TrashIcon className="h-5 w-5" />
                         </button>
@@ -480,12 +589,12 @@ export default function InvoicesPage() {
         ) : (
           <div className="p-12 text-center">
             <DocumentTextIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">{t('invoices.noInvoices')}</p>
+            <p className="text-gray-500">No hay facturas</p>
             <button
               onClick={() => setShowNewInvoice(true)}
               className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
             >
-              {t('invoices.createFirst')}
+              Crear primera factura
             </button>
           </div>
         )}
@@ -494,26 +603,28 @@ export default function InvoicesPage() {
       {/* New Invoice Modal */}
       {showNewInvoice && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b flex justify-between items-center">
-              <h2 className="text-lg font-semibold">{t('invoices.new')}</h2>
+          <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white">
+              <h2 className="text-lg font-semibold">Nueva Factura</h2>
               <button onClick={() => { setShowNewInvoice(false); resetNewInvoiceForm(); }}>
                 <XMarkIcon className="h-6 w-6 text-gray-500" />
               </button>
             </div>
             <div className="p-4 space-y-4">
+              {/* Client Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('invoices.client')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
                 <div className="flex gap-2">
                   <select
                     value={newInvoiceClient}
                     onChange={(e) => setNewInvoiceClient(e.target.value)}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   >
-                    <option value="">{t('invoices.selectClient')}</option>
+                    <option value="">Seleccionar cliente...</option>
                     {clients.map(client => (
                       <option key={client.id} value={client.id}>
-                        {client.name} {client.last_name}
+                        {client.display_name || `${client.first_name} ${client.last_name}`}
+                        {client.monthly_service_cost && ` - ${formatCurrency(client.monthly_service_cost)}/mes`}
                       </option>
                     ))}
                   </select>
@@ -522,59 +633,130 @@ export default function InvoicesPage() {
                       onClick={() => handleGenerateFromRates(newInvoiceClient)}
                       className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap"
                     >
-                      {t('invoices.generateFromRates')}
+                      Generar de Tarifas
                     </button>
                   )}
                 </div>
               </div>
 
+              {/* Invoice Items */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('invoices.items')}</label>
-                {newInvoiceItems.map((item, index) => (
-                  <div key={index} className="flex gap-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder={t('invoices.description')}
-                      value={item.description}
-                      onChange={(e) => updateItem(index, 'description', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                    />
-                    <input
-                      type="number"
-                      placeholder={t('invoices.quantity')}
-                      value={item.quantity}
-                      onChange={(e) => updateItem(index, 'quantity', Number(e.target.value))}
-                      className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder={t('invoices.unitPrice')}
-                      value={item.unitPrice}
-                      onChange={(e) => updateItem(index, 'unitPrice', Number(e.target.value))}
-                      className="w-28 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                    />
-                    {newInvoiceItems.length > 1 && (
-                      <button
-                        onClick={() => removeItem(index)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                      >
-                        <XMarkIcon className="h-5 w-5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                <label className="block text-sm font-medium text-gray-700 mb-2">Items de Factura</label>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Item</th>
+                        <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 w-20">Cant</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-28">Precio</th>
+                        <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 w-20">Desc %</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-28">Total</th>
+                        <th className="px-3 py-2 w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {newInvoiceItems.map((item, index) => (
+                        <tr key={index}>
+                          <td className="px-3 py-2 relative">
+                            <div className="relative">
+                              <MagnifyingGlassIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                              <input
+                                type="text"
+                                placeholder="Buscar item o escribir..."
+                                value={activeItemIndex === index ? itemSearchQuery : item.description}
+                                onChange={(e) => {
+                                  updateItem(index, 'description', e.target.value);
+                                  handleItemSearch(e.target.value, index);
+                                }}
+                                onFocus={() => setActiveItemIndex(index)}
+                                className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-primary-500"
+                              />
+                              {/* Search Results Dropdown */}
+                              {activeItemIndex === index && itemSearchResults.length > 0 && (
+                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                  {itemSearchResults.map((serviceItem) => (
+                                    <button
+                                      key={serviceItem.id}
+                                      type="button"
+                                      onClick={() => selectServiceItem(serviceItem, index)}
+                                      className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b last:border-b-0"
+                                    >
+                                      <div className="flex justify-between items-start">
+                                        <div>
+                                          <p className="font-medium text-sm">{serviceItem.name}</p>
+                                          {serviceItem.sku && (
+                                            <p className="text-xs text-gray-500">SKU: {serviceItem.sku}</p>
+                                          )}
+                                        </div>
+                                        <span className="text-sm font-medium text-green-600">
+                                          {formatCurrency(serviceItem.base_price)}
+                                        </span>
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => updateItem(index, 'quantity', Number(e.target.value))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={item.unitPrice}
+                              onChange={(e) => updateItem(index, 'unitPrice', Number(e.target.value))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-right focus:ring-2 focus:ring-primary-500"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={item.discountPercent}
+                              onChange={(e) => updateItem(index, 'discountPercent', Number(e.target.value))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500"
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-right text-sm font-medium">
+                            {formatCurrency(calculateLineTotal(item))}
+                          </td>
+                          <td className="px-3 py-2">
+                            {newInvoiceItems.length > 1 && (
+                              <button
+                                onClick={() => removeItem(index)}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <XMarkIcon className="h-4 w-4" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
                 <button
                   onClick={addItem}
-                  className="text-sm text-primary-600 hover:text-primary-700"
+                  className="mt-2 text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
                 >
-                  + {t('invoices.addItem')}
+                  <PlusIcon className="h-4 w-4" />
+                  Agregar línea
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* Tax, Discount, Adjustment */}
+              <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('invoices.tax')} (%)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">IVU (%)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -584,7 +766,17 @@ export default function InvoicesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('invoices.dueDate')}</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Descuento ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newInvoiceDiscount}
+                    onChange={(e) => setNewInvoiceDiscount(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Vencimiento</label>
                   <input
                     type="date"
                     value={newInvoiceDueDate}
@@ -594,8 +786,34 @@ export default function InvoicesPage() {
                 </div>
               </div>
 
+              {/* Adjustment */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ajuste (+/-)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newInvoiceAdjustment}
+                    onChange={(e) => setNewInvoiceAdjustment(Number(e.target.value))}
+                    placeholder="Ej: -10 o 5"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Descripción del Ajuste</label>
+                  <input
+                    type="text"
+                    value={newInvoiceAdjustmentDesc}
+                    onChange={(e) => setNewInvoiceAdjustmentDesc(e.target.value)}
+                    placeholder="Ej: Crédito por referido"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('invoices.notes')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
                 <textarea
                   value={newInvoiceNotes}
                   onChange={(e) => setNewInvoiceNotes(e.target.value)}
@@ -604,33 +822,49 @@ export default function InvoicesPage() {
                 />
               </div>
 
-              <div className="bg-gray-50 p-3 rounded-lg">
+              {/* Totals */}
+              <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="flex justify-between text-sm">
-                  <span>{t('invoices.subtotal')}:</span>
+                  <span>Subtotal:</span>
                   <span>{formatCurrency(calculateSubtotal())}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>{t('invoices.tax')} ({newInvoiceTaxRate}%):</span>
-                  <span>{formatCurrency(calculateSubtotal() * (newInvoiceTaxRate / 100))}</span>
-                </div>
-                <div className="flex justify-between font-semibold mt-2 pt-2 border-t">
-                  <span>{t('invoices.total')}:</span>
-                  <span>{formatCurrency(calculateSubtotal() * (1 + newInvoiceTaxRate / 100))}</span>
+                {newInvoiceTaxRate > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>IVU ({newInvoiceTaxRate}%):</span>
+                    <span>{formatCurrency(calculateSubtotal() * (newInvoiceTaxRate / 100))}</span>
+                  </div>
+                )}
+                {newInvoiceDiscount > 0 && (
+                  <div className="flex justify-between text-sm text-red-600">
+                    <span>Descuento:</span>
+                    <span>-{formatCurrency(newInvoiceDiscount)}</span>
+                  </div>
+                )}
+                {newInvoiceAdjustment !== 0 && (
+                  <div className="flex justify-between text-sm text-blue-600">
+                    <span>Ajuste{newInvoiceAdjustmentDesc && `: ${newInvoiceAdjustmentDesc}`}:</span>
+                    <span>{newInvoiceAdjustment >= 0 ? '+' : ''}{formatCurrency(newInvoiceAdjustment)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold mt-2 pt-2 border-t text-lg">
+                  <span>TOTAL:</span>
+                  <span>{formatCurrency(calculateTotal())}</span>
                 </div>
               </div>
             </div>
-            <div className="p-4 border-t flex justify-end gap-2">
+            <div className="p-4 border-t flex justify-end gap-2 sticky bottom-0 bg-white">
               <button
                 onClick={() => { setShowNewInvoice(false); resetNewInvoiceForm(); }}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               >
-                {t('common.cancel')}
+                Cancelar
               </button>
               <button
                 onClick={handleCreateInvoice}
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                disabled={!newInvoiceClient || newInvoiceItems.every(i => !i.description)}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {t('common.create')}
+                Crear Factura
               </button>
             </div>
           </div>
@@ -642,21 +876,21 @@ export default function InvoicesPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-md">
             <div className="p-4 border-b flex justify-between items-center">
-              <h2 className="text-lg font-semibold">{t('invoices.recordPayment')}</h2>
+              <h2 className="text-lg font-semibold">Registrar Pago</h2>
               <button onClick={() => setShowPaymentModal(false)}>
                 <XMarkIcon className="h-6 w-6 text-gray-500" />
               </button>
             </div>
             <div className="p-4 space-y-4">
               <p className="text-sm text-gray-600">
-                {t('invoices.invoiceNumber')}: <span className="font-medium">{selectedInvoice.invoice_number}</span>
+                Factura: <span className="font-medium">{selectedInvoice.invoice_number}</span>
               </p>
               <p className="text-sm text-gray-600">
-                {t('invoices.balanceDue')}: <span className="font-medium text-red-600">{formatCurrency(selectedInvoice.balance_due)}</span>
+                Pendiente: <span className="font-medium text-red-600">{formatCurrency(selectedInvoice.balance_due)}</span>
               </p>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('invoices.paymentAmount')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Monto del Pago</label>
                 <input
                   type="number"
                   step="0.01"
@@ -667,22 +901,23 @@ export default function InvoicesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('invoices.paymentMethod')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                 >
-                  <option value="cash">{t('invoices.cash')}</option>
-                  <option value="check">{t('invoices.check')}</option>
-                  <option value="card">{t('invoices.card')}</option>
-                  <option value="transfer">{t('invoices.transfer')}</option>
-                  <option value="other">{t('invoices.other')}</option>
+                  <option value="cash">Efectivo</option>
+                  <option value="check">Cheque</option>
+                  <option value="card">Tarjeta</option>
+                  <option value="ach">ACH/Transferencia</option>
+                  <option value="zelle">Zelle</option>
+                  <option value="other">Otro</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('invoices.paymentDate')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha del Pago</label>
                 <input
                   type="date"
                   value={paymentDate}
@@ -696,13 +931,13 @@ export default function InvoicesPage() {
                 onClick={() => setShowPaymentModal(false)}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               >
-                {t('common.cancel')}
+                Cancelar
               </button>
               <button
                 onClick={handleRecordPayment}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
               >
-                {t('invoices.recordPayment')}
+                Registrar Pago
               </button>
             </div>
           </div>
@@ -722,7 +957,7 @@ export default function InvoicesPage() {
             <div className="p-4 space-y-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-medium">{selectedInvoice.client_name} {selectedInvoice.client_last_name}</p>
+                  <p className="font-medium">{selectedInvoice.client_first_name} {selectedInvoice.client_last_name}</p>
                   <p className="text-sm text-gray-500">{selectedInvoice.client_email}</p>
                 </div>
                 <span className={`px-3 py-1 rounded-full ${getStatusColor(selectedInvoice.status)}`}>
@@ -732,11 +967,11 @@ export default function InvoicesPage() {
 
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-gray-500">{t('invoices.issueDate')}:</span>
+                  <span className="text-gray-500">Fecha de emisión:</span>
                   <p className="font-medium">{formatDate(selectedInvoice.issue_date)}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">{t('invoices.dueDate')}:</span>
+                  <span className="text-gray-500">Fecha de vencimiento:</span>
                   <p className="font-medium">{formatDate(selectedInvoice.due_date)}</p>
                 </div>
               </div>
@@ -744,10 +979,11 @@ export default function InvoicesPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-3 py-2 text-left">{t('invoices.description')}</th>
-                    <th className="px-3 py-2 text-center">{t('invoices.quantity')}</th>
-                    <th className="px-3 py-2 text-right">{t('invoices.unitPrice')}</th>
-                    <th className="px-3 py-2 text-right">{t('invoices.amount')}</th>
+                    <th className="px-3 py-2 text-left">Descripción</th>
+                    <th className="px-3 py-2 text-center">Cant</th>
+                    <th className="px-3 py-2 text-right">Precio</th>
+                    <th className="px-3 py-2 text-center">Desc</th>
+                    <th className="px-3 py-2 text-right">Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -756,6 +992,9 @@ export default function InvoicesPage() {
                       <td className="px-3 py-2">{item.description}</td>
                       <td className="px-3 py-2 text-center">{item.quantity}</td>
                       <td className="px-3 py-2 text-right">{formatCurrency(item.unit_price)}</td>
+                      <td className="px-3 py-2 text-center">
+                        {Number(item.discount_percent) > 0 ? `${item.discount_percent}%` : '-'}
+                      </td>
                       <td className="px-3 py-2 text-right">{formatCurrency(item.amount)}</td>
                     </tr>
                   ))}
@@ -764,37 +1003,61 @@ export default function InvoicesPage() {
 
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="flex justify-between text-sm">
-                  <span>{t('invoices.subtotal')}:</span>
+                  <span>Subtotal:</span>
                   <span>{formatCurrency(selectedInvoice.subtotal)}</span>
                 </div>
                 {Number(selectedInvoice.tax_amount) > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span>{t('invoices.tax')} ({selectedInvoice.tax_rate}%):</span>
+                    <span>IVU ({selectedInvoice.tax_rate}%):</span>
                     <span>{formatCurrency(selectedInvoice.tax_amount)}</span>
                   </div>
                 )}
+                {Number(selectedInvoice.discount_amount) > 0 && (
+                  <div className="flex justify-between text-sm text-red-600">
+                    <span>Descuento:</span>
+                    <span>-{formatCurrency(selectedInvoice.discount_amount)}</span>
+                  </div>
+                )}
+                {Number(selectedInvoice.adjustment_amount) !== 0 && (
+                  <div className="flex justify-between text-sm text-blue-600">
+                    <span>Ajuste{selectedInvoice.adjustment_description && `: ${selectedInvoice.adjustment_description}`}:</span>
+                    <span>{formatCurrency(selectedInvoice.adjustment_amount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-semibold mt-2 pt-2 border-t">
-                  <span>{t('invoices.total')}:</span>
+                  <span>Total:</span>
                   <span>{formatCurrency(selectedInvoice.total)}</span>
                 </div>
                 <div className="flex justify-between text-sm mt-2">
-                  <span>{t('invoices.paid')}:</span>
+                  <span>Pagado:</span>
                   <span className="text-green-600">{formatCurrency(selectedInvoice.amount_paid)}</span>
                 </div>
                 <div className="flex justify-between font-semibold">
-                  <span>{t('invoices.balanceDue')}:</span>
+                  <span>Pendiente:</span>
                   <span className={Number(selectedInvoice.balance_due) > 0 ? 'text-red-600' : 'text-green-600'}>
                     {formatCurrency(selectedInvoice.balance_due)}
                   </span>
                 </div>
               </div>
             </div>
-            <div className="p-4 border-t flex justify-end">
+            <div className="p-4 border-t flex justify-end gap-2">
+              {(selectedInvoice.status === 'sent' || selectedInvoice.status === 'overdue') && (
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    setPaymentAmount(selectedInvoice.balance_due);
+                    setShowPaymentModal(true);
+                  }}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  Registrar Pago
+                </button>
+              )}
               <button
                 onClick={() => setShowDetailsModal(false)}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               >
-                {t('common.cancel')}
+                Cerrar
               </button>
             </div>
           </div>
@@ -806,14 +1069,14 @@ export default function InvoicesPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-md">
             <div className="p-4 border-b flex justify-between items-center">
-              <h2 className="text-lg font-semibold">{t('invoices.settings')}</h2>
+              <h2 className="text-lg font-semibold">Configuración de Facturas</h2>
               <button onClick={() => setShowSettingsModal(false)}>
                 <XMarkIcon className="h-6 w-6 text-gray-500" />
               </button>
             </div>
             <div className="p-4 space-y-4">
               <p className="text-sm text-gray-500">
-                Invoice settings can be configured in the backend. Contact support for custom configuration.
+                La configuración de facturas se puede ajustar en el panel de administración del backend.
               </p>
             </div>
             <div className="p-4 border-t flex justify-end">
@@ -821,7 +1084,7 @@ export default function InvoicesPage() {
                 onClick={() => setShowSettingsModal(false)}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               >
-                {t('common.cancel')}
+                Cerrar
               </button>
             </div>
           </div>

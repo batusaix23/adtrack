@@ -113,11 +113,17 @@ router.post('/', authenticate, authorizeRoles('owner', 'admin'), async (req, res
     const {
       firstName, lastName, companyName, email, phone, phoneSecondary,
       address, addressLine2, city, state, zipCode,
-      billingAddress, billingCity, billingState, billingZip, billingEmail,
+      billingAddress, billingCity, billingState, billingZip, billingEmail, billingCountry,
+      // Shipping address
+      shippingAddress, shippingCity, shippingState, shippingZip, shippingCountry,
       clientType, serviceFrequency, serviceDays, preferredTime,
       monthlyServiceCost, stabilizerCost, stabilizerFrequencyMonths,
       gateCode, accessNotes, notes, internalNotes,
       autopayEnabled, portalEnabled,
+      // Zoho-style fields
+      salutation, displayName, mobile, website, taxId,
+      paymentTerms, creditLimit, currency, portalLanguage,
+      assignedTechnicianId,
       // Legacy support
       name
     } = req.body;
@@ -131,28 +137,40 @@ router.post('/', authenticate, authorizeRoles('owner', 'admin'), async (req, res
       return res.status(400).json({ error: 'La dirección es requerida' });
     }
 
+    // Generate display_name if not provided
+    const finalDisplayName = displayName ||
+      (companyName ? companyName : `${clientFirstName}${lastName ? ' ' + lastName : ''}`);
+
     const result = await query(
       `INSERT INTO clients (
         company_id, first_name, last_name, company_name, email, phone, phone_secondary,
         address, address_line2, city, state, zip_code,
-        billing_address, billing_city, billing_state, billing_zip, billing_email,
+        billing_address, billing_city, billing_state, billing_zip, billing_email, billing_country,
+        shipping_address, shipping_city, shipping_state, shipping_zip, shipping_country,
         client_type, service_frequency, service_days, preferred_time,
         monthly_service_cost, stabilizer_cost, stabilizer_frequency_months,
         gate_code, access_notes, notes, internal_notes,
         autopay_enabled, portal_enabled,
+        salutation, display_name, mobile, website, tax_id,
+        payment_terms, credit_limit, currency, portal_language,
+        assigned_technician_id,
         name, status
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, 'active')
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, 'active')
        RETURNING *`,
       [
         req.user.company_id, clientFirstName, lastName, companyName, email, phone, phoneSecondary,
         address, addressLine2, city, state, zipCode,
-        billingAddress, billingCity, billingState, billingZip, billingEmail,
+        billingAddress, billingCity, billingState, billingZip, billingEmail, billingCountry || 'Puerto Rico',
+        shippingAddress, shippingCity, shippingState, shippingZip, shippingCountry || 'Puerto Rico',
         clientType || 'residential', serviceFrequency || '1x_week',
         JSON.stringify(serviceDays || []), preferredTime,
         monthlyServiceCost, stabilizerCost, stabilizerFrequencyMonths || 3,
         gateCode, accessNotes, notes, internalNotes,
         autopayEnabled || false, portalEnabled || false,
+        salutation, finalDisplayName, mobile, website, taxId,
+        paymentTerms || 'net_30', creditLimit, currency || 'USD', portalLanguage || 'es',
+        assignedTechnicianId || null,
         clientFirstName
       ]
     );
@@ -169,12 +187,16 @@ router.put('/:id', authenticate, authorizeRoles('owner', 'admin'), async (req, r
     const {
       firstName, lastName, companyName, email, phone, phoneSecondary,
       address, addressLine2, city, state, zipCode,
-      billingAddress, billingCity, billingState, billingZip, billingEmail,
+      billingAddress, billingCity, billingState, billingZip, billingEmail, billingCountry,
+      shippingAddress, shippingCity, shippingState, shippingZip, shippingCountry,
       clientType, serviceFrequency, serviceDays, preferredTime,
       monthlyServiceCost, stabilizerCost, stabilizerFrequencyMonths,
       gateCode, accessNotes, notes, internalNotes,
       autopayEnabled, portalEnabled, status, isActive,
       assignedTechnicianId,
+      // Zoho-style fields
+      salutation, displayName, mobile, website, taxId,
+      paymentTerms, creditLimit, currency, portalLanguage,
       // Legacy
       name, serviceDay
     } = req.body;
@@ -217,8 +239,23 @@ router.put('/:id', authenticate, authorizeRoles('owner', 'admin'), async (req, r
            assigned_technician_id = $32,
            name = COALESCE($1, name),
            service_day = COALESCE($33, service_day),
+           salutation = COALESCE($34, salutation),
+           display_name = COALESCE($35, display_name),
+           mobile = COALESCE($36, mobile),
+           website = COALESCE($37, website),
+           tax_id = COALESCE($38, tax_id),
+           payment_terms = COALESCE($39, payment_terms),
+           credit_limit = COALESCE($40, credit_limit),
+           currency = COALESCE($41, currency),
+           portal_language = COALESCE($42, portal_language),
+           shipping_address = COALESCE($43, shipping_address),
+           shipping_city = COALESCE($44, shipping_city),
+           shipping_state = COALESCE($45, shipping_state),
+           shipping_zip = COALESCE($46, shipping_zip),
+           shipping_country = COALESCE($47, shipping_country),
+           billing_country = COALESCE($48, billing_country),
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $34 AND company_id = $35
+       WHERE id = $49 AND company_id = $50
        RETURNING *`,
       [
         clientFirstName, lastName, companyName, email, phone, phoneSecondary,
@@ -232,6 +269,10 @@ router.put('/:id', authenticate, authorizeRoles('owner', 'admin'), async (req, r
         autopayEnabled, portalEnabled, status, isActive,
         assignedTechnicianId || null,
         serviceDay,
+        salutation, displayName, mobile, website, taxId,
+        paymentTerms, creditLimit, currency, portalLanguage,
+        shippingAddress, shippingCity, shippingState, shippingZip, shippingCountry,
+        billingCountry,
         req.params.id, req.user.company_id
       ]
     );
@@ -271,17 +312,137 @@ router.get('/:id/services', authenticate, async (req, res, next) => {
 
     const result = await query(
       `SELECT sr.*, p.name as pool_name,
-              u.first_name || ' ' || u.last_name as technician_name
+              COALESCE(t.first_name || ' ' || t.last_name, u.first_name || ' ' || u.last_name) as technician_name
        FROM service_records sr
-       JOIN pools p ON sr.pool_id = p.id
-       JOIN users u ON sr.technician_id = u.id
-       WHERE p.client_id = $1 AND sr.company_id = $2
+       LEFT JOIN pools p ON sr.pool_id = p.id
+       LEFT JOIN technicians t ON sr.technician_id = t.id
+       LEFT JOIN users u ON sr.technician_id = u.id
+       WHERE sr.client_id = $1 AND sr.company_id = $2
        ORDER BY sr.scheduled_date DESC, sr.scheduled_time DESC
        LIMIT $3 OFFSET $4`,
       [req.params.id, req.user.company_id, limit, offset]
     );
 
     res.json({ services: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get client transactions (invoices + payments combined)
+router.get('/:id/transactions', authenticate, async (req, res, next) => {
+  try {
+    const { limit = 50, offset = 0 } = req.query;
+
+    // Get invoices
+    const invoicesResult = await query(
+      `SELECT
+        i.id,
+        i.invoice_number as reference,
+        'invoice' as type,
+        i.issue_date as date,
+        i.total as amount,
+        i.balance_due,
+        i.status,
+        i.due_date,
+        i.created_at
+       FROM invoices i
+       WHERE i.client_id = $1 AND i.company_id = $2
+       ORDER BY i.created_at DESC`,
+      [req.params.id, req.user.company_id]
+    );
+
+    // Get payments
+    const paymentsResult = await query(
+      `SELECT
+        p.id,
+        COALESCE('PAY-' || LPAD(ROW_NUMBER() OVER (ORDER BY p.created_at)::text, 5, '0'), p.payment_reference) as reference,
+        'payment' as type,
+        p.payment_date as date,
+        p.amount,
+        0 as balance_due,
+        p.status,
+        NULL as due_date,
+        p.created_at,
+        p.payment_method,
+        i.invoice_number as invoice_reference
+       FROM payments p
+       LEFT JOIN invoices i ON p.invoice_id = i.id
+       WHERE p.client_id = $1 AND p.company_id = $2
+       ORDER BY p.created_at DESC`,
+      [req.params.id, req.user.company_id]
+    );
+
+    // Combine and sort
+    const transactions = [
+      ...invoicesResult.rows,
+      ...paymentsResult.rows
+    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+     .slice(offset, offset + parseInt(limit));
+
+    res.json({ transactions });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get client billing summary
+router.get('/:id/summary', authenticate, async (req, res, next) => {
+  try {
+    const clientId = req.params.id;
+    const companyId = req.user.company_id;
+
+    // Get invoice totals
+    const invoiceSummary = await query(
+      `SELECT
+        COALESCE(SUM(total), 0) as total_invoiced,
+        COALESCE(SUM(amount_paid), 0) as total_paid,
+        COALESCE(SUM(balance_due), 0) as total_pending,
+        COUNT(*) FILTER (WHERE status = 'overdue') as overdue_count,
+        COUNT(*) FILTER (WHERE status = 'sent') as open_count,
+        COUNT(*) FILTER (WHERE status = 'paid') as paid_count
+       FROM invoices
+       WHERE client_id = $1 AND company_id = $2`,
+      [clientId, companyId]
+    );
+
+    // Get credits (overpayments)
+    const creditResult = await query(
+      `SELECT COALESCE(c.balance, 0) as credits
+       FROM clients c
+       WHERE c.id = $1`,
+      [clientId]
+    );
+
+    // Get last payment
+    const lastPaymentResult = await query(
+      `SELECT amount, payment_date, payment_method
+       FROM payments
+       WHERE client_id = $1 AND company_id = $2 AND status = 'completed'
+       ORDER BY payment_date DESC
+       LIMIT 1`,
+      [clientId, companyId]
+    );
+
+    // Get service stats
+    const serviceStats = await query(
+      `SELECT
+        COUNT(*) as total_services,
+        MAX(scheduled_date) as last_service_date
+       FROM service_records
+       WHERE client_id = $1 AND company_id = $2 AND status = 'completed'`,
+      [clientId, companyId]
+    );
+
+    res.json({
+      summary: {
+        ...invoiceSummary.rows[0],
+        credits: creditResult.rows[0]?.credits || 0,
+        lastPayment: lastPaymentResult.rows[0] || null,
+        totalServices: serviceStats.rows[0]?.total_services || 0,
+        lastServiceDate: serviceStats.rows[0]?.last_service_date || null
+      }
+    });
   } catch (error) {
     next(error);
   }

@@ -18,10 +18,12 @@ import {
 interface ServiceItem {
   id: string;
   name: string;
+  sku: string;
   description: string;
   item_type: string;
   category: string;
   base_price: string;
+  cost_price: string;
   unit: string;
   tax_rate: string;
   is_active: boolean;
@@ -29,8 +31,9 @@ interface ServiceItem {
 
 const itemTypes = [
   { value: 'service', label: 'Servicio', labelEn: 'Service', icon: WrenchScrewdriverIcon },
-  { value: 'product', label: 'Producto', labelEn: 'Product', icon: BeakerIcon },
-  { value: 'part', label: 'Parte/Repuesto', labelEn: 'Part', icon: CubeIcon },
+  { value: 'product', label: 'Producto', labelEn: 'Product', icon: CubeIcon },
+  { value: 'chemical', label: 'Químico', labelEn: 'Chemical', icon: BeakerIcon },
+  { value: 'part', label: 'Parte/Repuesto', labelEn: 'Part', icon: TagIcon },
   { value: 'other', label: 'Otro', labelEn: 'Other', icon: TagIcon },
 ];
 
@@ -47,10 +50,12 @@ export default function CatalogPage() {
   const [editingItem, setEditingItem] = useState<ServiceItem | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    sku: '',
     description: '',
     itemType: 'service',
     category: '',
     basePrice: '',
+    costPrice: '',
     unit: 'unit',
     taxRate: '0',
   });
@@ -112,10 +117,12 @@ export default function CatalogPage() {
     setEditingItem(item);
     setFormData({
       name: item.name,
+      sku: item.sku || '',
       description: item.description || '',
       itemType: item.item_type,
       category: item.category || '',
       basePrice: item.base_price,
+      costPrice: item.cost_price || '',
       unit: item.unit || 'unit',
       taxRate: item.tax_rate || '0',
     });
@@ -136,10 +143,12 @@ export default function CatalogPage() {
     setEditingItem(null);
     setFormData({
       name: '',
+      sku: '',
       description: '',
       itemType: 'service',
       category: '',
       basePrice: '',
+      costPrice: '',
       unit: 'unit',
       taxRate: '0',
     });
@@ -161,6 +170,7 @@ export default function CatalogPage() {
 
   const filteredItems = items.filter(item =>
     item.name.toLowerCase().includes(search.toLowerCase()) ||
+    item.sku?.toLowerCase().includes(search.toLowerCase()) ||
     item.description?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -245,7 +255,14 @@ export default function CatalogPage() {
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-900">{item.name}</h3>
-                    <p className="text-sm text-gray-500">{getTypeLabel(item.item_type)}</p>
+                    <div className="flex items-center gap-2">
+                      {item.sku && (
+                        <span className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                          {item.sku}
+                        </span>
+                      )}
+                      <span className="text-sm text-gray-500">{getTypeLabel(item.item_type)}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -273,13 +290,27 @@ export default function CatalogPage() {
                   <p className="text-xl font-bold text-primary-600">
                     {formatCurrency(item.base_price)}
                   </p>
-                  <p className="text-xs text-gray-400">/ {item.unit}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">/ {item.unit}</span>
+                    {item.cost_price && Number(item.cost_price) > 0 && (
+                      <span className="text-xs text-gray-400">
+                        ({language === 'es' ? 'costo' : 'cost'}: {formatCurrency(item.cost_price)})
+                      </span>
+                    )}
+                  </div>
                 </div>
-                {item.category && (
-                  <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                    {item.category}
-                  </span>
-                )}
+                <div className="flex flex-col items-end gap-1">
+                  {item.category && (
+                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
+                      {item.category}
+                    </span>
+                  )}
+                  {item.tax_rate && Number(item.tax_rate) > 0 && (
+                    <span className="text-xs text-gray-400">
+                      IVU: {item.tax_rate}%
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -317,17 +348,34 @@ export default function CatalogPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {language === 'es' ? 'Nombre' : 'Name'} *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {language === 'es' ? 'Nombre' : 'Name'} *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    SKU
+                    <span className="text-xs text-gray-400 ml-1">
+                      ({language === 'es' ? 'auto si vacío' : 'auto if empty'})
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.sku}
+                    onChange={(e) => setFormData({ ...formData, sku: e.target.value.toUpperCase() })}
+                    placeholder={language === 'es' ? 'ej: SRV-001' : 'e.g: SRV-001'}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 font-mono"
+                  />
+                </div>
               </div>
 
               <div>
@@ -379,43 +427,91 @@ export default function CatalogPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {language === 'es' ? 'Precio de Venta' : 'Sell Price'} *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.basePrice}
+                      onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
+                      className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {language === 'es' ? 'Precio de Costo' : 'Cost Price'}
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.costPrice}
+                      onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
+                      placeholder="0.00"
+                      className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {language === 'es' ? 'Precio Base' : 'Base Price'} *
+                    {language === 'es' ? 'Unidad de Medida' : 'Unit of Measure'}
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.basePrice}
-                    onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {language === 'es' ? 'Unidad' : 'Unit'}
-                  </label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.unit}
                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    placeholder="unit, hour, lb"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                  />
+                  >
+                    <option value="unit">{language === 'es' ? 'Unidad' : 'Unit'}</option>
+                    <option value="hour">{language === 'es' ? 'Hora' : 'Hour'}</option>
+                    <option value="day">{language === 'es' ? 'Día' : 'Day'}</option>
+                    <option value="week">{language === 'es' ? 'Semana' : 'Week'}</option>
+                    <option value="month">{language === 'es' ? 'Mes' : 'Month'}</option>
+                    <option value="lb">{language === 'es' ? 'Libra (lb)' : 'Pound (lb)'}</option>
+                    <option value="kg">{language === 'es' ? 'Kilogramo (kg)' : 'Kilogram (kg)'}</option>
+                    <option value="gal">{language === 'es' ? 'Galón' : 'Gallon'}</option>
+                    <option value="liter">{language === 'es' ? 'Litro' : 'Liter'}</option>
+                    <option value="ft">{language === 'es' ? 'Pie (ft)' : 'Foot (ft)'}</option>
+                    <option value="sqft">{language === 'es' ? 'Pie² (sqft)' : 'Sq Foot (sqft)'}</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {language === 'es' ? 'Impuesto %' : 'Tax %'}
+                    {language === 'es' ? 'Impuesto (IVU)' : 'Tax Rate'}
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.taxRate}
-                    onChange={(e) => setFormData({ ...formData, taxRate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                  />
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.taxRate}
+                      onChange={(e) => setFormData({ ...formData, taxRate: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                  </div>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, taxRate: '11.5' })}
+                    className="w-full px-3 py-2 text-sm text-primary-600 border border-primary-300 rounded-lg hover:bg-primary-50"
+                  >
+                    IVU PR (11.5%)
+                  </button>
                 </div>
               </div>
 

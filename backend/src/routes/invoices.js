@@ -259,7 +259,8 @@ router.post('/', authenticateToken, authorizeRoles('owner', 'admin', 'manager'),
   try {
     const {
       clientId, invoiceType = 'one_time', items, taxRate = 0, discountAmount = 0,
-      notes, terms, dueDate, billingPeriodStart, billingPeriodEnd
+      notes, terms, dueDate, billingPeriodStart, billingPeriodEnd,
+      adjustmentDescription, adjustmentAmount
     } = req.body;
 
     if (!clientId || !items || items.length === 0) {
@@ -268,10 +269,19 @@ router.post('/', authenticateToken, authorizeRoles('owner', 'admin', 'manager'),
 
     const invoiceNumber = await getNextInvoiceNumber(req.user.companyId);
 
-    // Calculate totals
-    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    // Calculate totals with line item discounts
+    let subtotal = 0;
+    for (const item of items) {
+      const lineTotal = item.quantity * item.unitPrice;
+      const lineDiscount = item.discountPercent
+        ? lineTotal * (item.discountPercent / 100)
+        : (item.discountAmount || 0);
+      subtotal += lineTotal - lineDiscount;
+    }
+
     const taxAmount = subtotal * (taxRate / 100);
-    const total = subtotal + taxAmount - (discountAmount || 0);
+    const adjustment = adjustmentAmount || 0;
+    const total = subtotal + taxAmount - (discountAmount || 0) + adjustment;
 
     // Get default due days if not specified
     let finalDueDate = dueDate;
@@ -292,26 +302,33 @@ router.post('/', authenticateToken, authorizeRoles('owner', 'admin', 'manager'),
         company_id, client_id, invoice_number, invoice_type,
         subtotal, tax_rate, tax_amount, discount_amount, total, balance_due,
         due_date, notes, terms, billing_period_start, billing_period_end,
+        adjustment_description, adjustment_amount,
         status, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10, $11, $12, $13, $14, 'draft', $15)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10, $11, $12, $13, $14, $15, $16, 'draft', $17)
       RETURNING *`,
       [
         req.user.companyId, clientId, invoiceNumber, invoiceType,
         subtotal, taxRate, taxAmount, discountAmount, total,
         finalDueDate, notes, terms, billingPeriodStart, billingPeriodEnd,
+        adjustmentDescription, adjustment,
         req.user.userId
       ]
     );
 
     const invoice = invoiceResult.rows[0];
 
-    // Insert items
+    // Insert items with service_item_id and discounts
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
+      const lineTotal = item.quantity * item.unitPrice;
+      const discountPct = item.discountPercent || 0;
+      const discountAmt = item.discountAmount || (discountPct > 0 ? lineTotal * (discountPct / 100) : 0);
+      const amount = lineTotal - discountAmt;
+
       await query(
-        `INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [invoice.id, item.description, item.quantity, item.unitPrice, item.quantity * item.unitPrice, i]
+        `INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, discount_percent, discount_amount, amount, service_item_id, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [invoice.id, item.description, item.quantity, item.unitPrice, discountPct, discountAmt, amount, item.serviceItemId || null, i]
       );
     }
 
@@ -328,7 +345,7 @@ router.post('/', authenticateToken, authorizeRoles('owner', 'admin', 'manager'),
 
 router.put('/:id', authenticateToken, authorizeRoles('owner', 'admin', 'manager'), async (req, res) => {
   try {
-    const { status, notes, terms, dueDate, items, taxRate, discountAmount } = req.body;
+    const { status, notes, terms, dueDate, items, taxRate, discountAmount, adjustmentDescription, adjustmentAmount } = req.body;
 
     // Check current status
     const existing = await query(
@@ -353,6 +370,8 @@ router.put('/:id', authenticateToken, authorizeRoles('owner', 'admin', 'manager'
     let total = currentInvoice.total;
     let finalTaxRate = taxRate !== undefined ? taxRate : currentInvoice.tax_rate;
     let finalDiscount = discountAmount !== undefined ? discountAmount : currentInvoice.discount_amount;
+    let finalAdjustment = adjustmentAmount !== undefined ? adjustmentAmount : (currentInvoice.adjustment_amount || 0);
+    let finalAdjustmentDesc = adjustmentDescription !== undefined ? adjustmentDescription : currentInvoice.adjustment_description;
 
     if (items && items.length > 0) {
       // Delete existing items and recreate
@@ -361,17 +380,21 @@ router.put('/:id', authenticateToken, authorizeRoles('owner', 'admin', 'manager'
       subtotal = 0;
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        const amount = item.quantity * item.unitPrice;
+        const lineTotal = item.quantity * item.unitPrice;
+        const discountPct = item.discountPercent || 0;
+        const discountAmt = item.discountAmount || (discountPct > 0 ? lineTotal * (discountPct / 100) : 0);
+        const amount = lineTotal - discountAmt;
         subtotal += amount;
+
         await query(
-          `INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount, sort_order)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [req.params.id, item.description, item.quantity, item.unitPrice, amount, i]
+          `INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, discount_percent, discount_amount, amount, service_item_id, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [req.params.id, item.description, item.quantity, item.unitPrice, discountPct, discountAmt, amount, item.serviceItemId || null, i]
         );
       }
 
       taxAmount = subtotal * (finalTaxRate / 100);
-      total = subtotal + taxAmount - finalDiscount;
+      total = subtotal + taxAmount - finalDiscount + finalAdjustment;
     }
 
     // Update invoice
@@ -393,13 +416,16 @@ router.put('/:id', authenticateToken, authorizeRoles('owner', 'admin', 'manager'
         total = $9,
         balance_due = $9 - amount_paid,
         sent_at = $10,
+        adjustment_description = $11,
+        adjustment_amount = $12,
         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $11 AND company_id = $12
+       WHERE id = $13 AND company_id = $14
        RETURNING *`,
       [
         status, notes, terms, dueDate,
         subtotal, finalTaxRate, taxAmount, finalDiscount, total,
-        sentAt, req.params.id, req.user.companyId
+        sentAt, finalAdjustmentDesc, finalAdjustment,
+        req.params.id, req.user.companyId
       ]
     );
 
