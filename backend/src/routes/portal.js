@@ -544,10 +544,11 @@ router.get('/requests', portalAuth, async (req, res) => {
 // ADMIN: PORTAL MANAGEMENT
 // ============================================
 
-const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const authenticate = require('../middleware/authenticate');
+const { authorizeRoles } = require('../middleware/authorize');
 
 // Enable portal access for a client
-router.post('/admin/enable/:clientId', authenticateToken, authorizeRoles('owner', 'admin'), async (req, res) => {
+router.post('/admin/enable/:clientId', authenticate, authorizeRoles('owner', 'admin'), async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -557,7 +558,7 @@ router.post('/admin/enable/:clientId', authenticateToken, authorizeRoles('owner'
 
     const clientResult = await query(
       'SELECT id, email FROM clients WHERE id = $1 AND company_id = $2',
-      [req.params.clientId, req.user.companyId]
+      [req.params.clientId, req.user.company_id]
     );
 
     if (clientResult.rows.length === 0) {
@@ -582,11 +583,11 @@ router.post('/admin/enable/:clientId', authenticateToken, authorizeRoles('owner'
 });
 
 // Disable portal access
-router.post('/admin/disable/:clientId', authenticateToken, authorizeRoles('owner', 'admin'), async (req, res) => {
+router.post('/admin/disable/:clientId', authenticate, authorizeRoles('owner', 'admin'), async (req, res) => {
   try {
     await query(
       `UPDATE clients SET portal_enabled = false WHERE id = $1 AND company_id = $2`,
-      [req.params.clientId, req.user.companyId]
+      [req.params.clientId, req.user.company_id]
     );
 
     res.json({ message: 'Acceso al portal deshabilitado' });
@@ -597,7 +598,7 @@ router.post('/admin/disable/:clientId', authenticateToken, authorizeRoles('owner
 });
 
 // Reset portal password
-router.post('/admin/reset-password/:clientId', authenticateToken, authorizeRoles('owner', 'admin'), async (req, res) => {
+router.post('/admin/reset-password/:clientId', authenticate, authorizeRoles('owner', 'admin'), async (req, res) => {
   try {
     const { password } = req.body;
 
@@ -609,7 +610,7 @@ router.post('/admin/reset-password/:clientId', authenticateToken, authorizeRoles
 
     await query(
       `UPDATE clients SET portal_password_hash = $1 WHERE id = $2 AND company_id = $3`,
-      [passwordHash, req.params.clientId, req.user.companyId]
+      [passwordHash, req.params.clientId, req.user.company_id]
     );
 
     res.json({ message: 'Contraseña actualizada' });

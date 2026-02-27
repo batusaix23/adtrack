@@ -28,7 +28,12 @@
       "Bash(railway link:*)",
       "Bash(railway logs:*)",
       "Bash(railway domain:*)",
-      "Bash(railway redeploy:*)"
+      "Bash(railway redeploy:*)",
+      "Bash(git rm:*)",
+      "Bash(git push:*)",
+      "Bash(git remote add:*)",
+      "Bash(node:*)",
+      "Bash(ls:*)"
     ]
   }
 }

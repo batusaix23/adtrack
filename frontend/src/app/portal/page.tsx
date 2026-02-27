@@ -49,7 +49,7 @@ export default function PortalDashboardPage() {
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem('portal_token');
+      const token = localStorage.getItem('portalAccessToken');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       const config = { headers: { Authorization: `Bearer ${token}` } };
 

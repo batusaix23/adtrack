@@ -19,6 +19,9 @@ import {
   XMarkIcon,
   ArrowPathIcon,
   MagnifyingGlassIcon,
+  PrinterIcon,
+  EnvelopeIcon,
+  ChatBubbleLeftIcon,
 } from '@heroicons/react/24/outline';
 
 interface Invoice {
@@ -136,6 +139,10 @@ export default function InvoicesPage() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Send invoice
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -351,6 +358,45 @@ export default function InvoicesPage() {
       fetchData();
     } catch (error) {
       console.error('Error deleting invoice:', error);
+    }
+  };
+
+  const handlePrintInvoice = () => {
+    if (!selectedInvoice) return;
+    window.print();
+  };
+
+  const handleSendEmail = async () => {
+    if (!selectedInvoice) return;
+    setSendingEmail(true);
+    try {
+      await axios.post(`${apiUrl}/invoices/${selectedInvoice.id}/send`, { via: 'email' }, getAuthHeaders());
+      alert('Factura enviada por email exitosamente');
+      fetchData();
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert('Error enviando email. Verifique que el cliente tenga email configurado.');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const handleSendWhatsApp = () => {
+    if (!selectedInvoice) return;
+    const phone = selectedInvoice.client_email ? '' : ''; // We need to get phone from client
+    const message = encodeURIComponent(
+      `Hola! Le enviamos la factura ${selectedInvoice.invoice_number} por $${Number(selectedInvoice.total).toFixed(2)}. ` +
+      `Vence el ${formatDate(selectedInvoice.due_date)}. ` +
+      `Pendiente: $${Number(selectedInvoice.balance_due).toFixed(2)}. ¡Gracias!`
+    );
+    // Get client phone from the invoice or use a placeholder
+    const clientPhone = ''; // This would need to come from the invoice details
+    if (clientPhone) {
+      window.open(`https://wa.me/${clientPhone}?text=${message}`, '_blank');
+    } else {
+      // Copy message to clipboard as fallback
+      navigator.clipboard.writeText(decodeURIComponent(message));
+      alert('Mensaje copiado al portapapeles. Pegue en WhatsApp manualmente.');
     }
   };
 
@@ -958,121 +1004,199 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      {/* Details Modal */}
+      {/* Details Modal - Printable Invoice */}
       {showDetailsModal && selectedInvoice && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b flex justify-between items-center">
+          <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto print:max-w-full print:max-h-full print:overflow-visible print:shadow-none">
+            {/* Header with actions - hidden when printing */}
+            <div className="p-4 border-b flex justify-between items-center print:hidden">
               <h2 className="text-lg font-semibold">{selectedInvoice.invoice_number}</h2>
-              <button onClick={() => setShowDetailsModal(false)}>
-                <XMarkIcon className="h-6 w-6 text-gray-500" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrintInvoice}
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                  title="Imprimir"
+                >
+                  <PrinterIcon className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={handleSendEmail}
+                  disabled={sendingEmail}
+                  className="p-2 text-gray-600 hover:bg-blue-100 rounded-lg disabled:opacity-50"
+                  title="Enviar por Email"
+                >
+                  <EnvelopeIcon className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={handleSendWhatsApp}
+                  className="p-2 text-gray-600 hover:bg-green-100 rounded-lg"
+                  title="Enviar por WhatsApp"
+                >
+                  <ChatBubbleLeftIcon className="h-5 w-5" />
+                </button>
+                <button onClick={() => setShowDetailsModal(false)}>
+                  <XMarkIcon className="h-6 w-6 text-gray-500" />
+                </button>
+              </div>
             </div>
-            <div className="p-4 space-y-4">
-              <div className="flex justify-between items-start">
+
+            {/* Invoice Content - Printable */}
+            <div className="p-6 print:p-8" id="invoice-content">
+              {/* Company Header */}
+              <div className="text-center mb-6 print:mb-8">
+                <h1 className="text-2xl font-bold text-primary-600">Aguadulce Track</h1>
+                <p className="text-gray-500 text-sm">Servicio de Mantenimiento de Piscinas</p>
+              </div>
+
+              {/* Invoice Title and Number */}
+              <div className="flex justify-between items-start mb-6">
                 <div>
-                  <p className="font-medium">{selectedInvoice.client_first_name} {selectedInvoice.client_last_name}</p>
-                  <p className="text-sm text-gray-500">{selectedInvoice.client_email}</p>
+                  <h2 className="text-xl font-bold">FACTURA</h2>
+                  <p className="text-lg font-semibold text-primary-600">{selectedInvoice.invoice_number}</p>
                 </div>
-                <span className={`px-3 py-1 rounded-full ${getStatusColor(selectedInvoice.status)}`}>
+                <span className={`px-3 py-1 rounded-full text-sm print:border ${getStatusColor(selectedInvoice.status)}`}>
                   {getStatusLabel(selectedInvoice.status)}
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              {/* Client and Dates */}
+              <div className="grid grid-cols-2 gap-6 mb-6">
                 <div>
-                  <span className="text-gray-500">Fecha de emisión:</span>
-                  <p className="font-medium">{formatDate(selectedInvoice.issue_date)}</p>
+                  <p className="text-sm text-gray-500 mb-1">Facturar a:</p>
+                  <p className="font-semibold">{selectedInvoice.client_first_name} {selectedInvoice.client_last_name}</p>
+                  <p className="text-sm text-gray-600">{selectedInvoice.client_email}</p>
                 </div>
-                <div>
-                  <span className="text-gray-500">Fecha de vencimiento:</span>
-                  <p className="font-medium">{formatDate(selectedInvoice.due_date)}</p>
+                <div className="text-right">
+                  <div className="mb-2">
+                    <p className="text-sm text-gray-500">Fecha de emisión:</p>
+                    <p className="font-medium">{formatDate(selectedInvoice.issue_date)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Fecha de vencimiento:</p>
+                    <p className="font-medium">{formatDate(selectedInvoice.due_date)}</p>
+                  </div>
                 </div>
               </div>
 
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Descripción</th>
-                    <th className="px-3 py-2 text-center">Cant</th>
-                    <th className="px-3 py-2 text-right">Precio</th>
-                    <th className="px-3 py-2 text-center">Desc</th>
-                    <th className="px-3 py-2 text-right">Total</th>
+              {/* Items Table */}
+              <table className="w-full text-sm mb-6">
+                <thead>
+                  <tr className="border-b-2 border-gray-300">
+                    <th className="px-3 py-2 text-left font-semibold">Descripción</th>
+                    <th className="px-3 py-2 text-center font-semibold w-20">Cant</th>
+                    <th className="px-3 py-2 text-right font-semibold w-28">Precio</th>
+                    <th className="px-3 py-2 text-right font-semibold w-28">Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {invoiceItems.map(item => (
-                    <tr key={item.id} className="border-b">
-                      <td className="px-3 py-2">{item.description}</td>
-                      <td className="px-3 py-2 text-center">{item.quantity}</td>
-                      <td className="px-3 py-2 text-right">{formatCurrency(item.unit_price)}</td>
-                      <td className="px-3 py-2 text-center">
-                        {Number(item.discount_percent) > 0 ? `${item.discount_percent}%` : '-'}
-                      </td>
-                      <td className="px-3 py-2 text-right">{formatCurrency(item.amount)}</td>
+                    <tr key={item.id} className="border-b border-gray-200">
+                      <td className="px-3 py-3">{item.description}</td>
+                      <td className="px-3 py-3 text-center">{item.quantity}</td>
+                      <td className="px-3 py-3 text-right">{formatCurrency(item.unit_price)}</td>
+                      <td className="px-3 py-3 text-right">{formatCurrency(item.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex justify-between text-sm">
-                  <span>Subtotal:</span>
-                  <span>{formatCurrency(selectedInvoice.subtotal)}</span>
-                </div>
-                {Number(selectedInvoice.tax_amount) > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span>IVU ({selectedInvoice.tax_rate}%):</span>
-                    <span>{formatCurrency(selectedInvoice.tax_amount)}</span>
+              {/* Totals */}
+              <div className="flex justify-end">
+                <div className="w-64">
+                  <div className="flex justify-between py-1">
+                    <span>Subtotal:</span>
+                    <span>{formatCurrency(selectedInvoice.subtotal)}</span>
                   </div>
-                )}
-                {Number(selectedInvoice.discount_amount) > 0 && (
-                  <div className="flex justify-between text-sm text-red-600">
-                    <span>Descuento:</span>
-                    <span>-{formatCurrency(selectedInvoice.discount_amount)}</span>
+                  {Number(selectedInvoice.tax_amount) > 0 && (
+                    <div className="flex justify-between py-1">
+                      <span>IVU ({selectedInvoice.tax_rate}%):</span>
+                      <span>{formatCurrency(selectedInvoice.tax_amount)}</span>
+                    </div>
+                  )}
+                  {Number(selectedInvoice.discount_amount) > 0 && (
+                    <div className="flex justify-between py-1 text-red-600">
+                      <span>Descuento:</span>
+                      <span>-{formatCurrency(selectedInvoice.discount_amount)}</span>
+                    </div>
+                  )}
+                  {Number(selectedInvoice.adjustment_amount) !== 0 && (
+                    <div className="flex justify-between py-1 text-blue-600">
+                      <span>Ajuste:</span>
+                      <span>{formatCurrency(selectedInvoice.adjustment_amount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between py-2 border-t-2 border-gray-300 font-bold text-lg">
+                    <span>TOTAL:</span>
+                    <span>{formatCurrency(selectedInvoice.total)}</span>
                   </div>
-                )}
-                {Number(selectedInvoice.adjustment_amount) !== 0 && (
-                  <div className="flex justify-between text-sm text-blue-600">
-                    <span>Ajuste{selectedInvoice.adjustment_description && `: ${selectedInvoice.adjustment_description}`}:</span>
-                    <span>{formatCurrency(selectedInvoice.adjustment_amount)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-semibold mt-2 pt-2 border-t">
-                  <span>Total:</span>
-                  <span>{formatCurrency(selectedInvoice.total)}</span>
-                </div>
-                <div className="flex justify-between text-sm mt-2">
-                  <span>Pagado:</span>
-                  <span className="text-green-600">{formatCurrency(selectedInvoice.amount_paid)}</span>
-                </div>
-                <div className="flex justify-between font-semibold">
-                  <span>Pendiente:</span>
-                  <span className={Number(selectedInvoice.balance_due) > 0 ? 'text-red-600' : 'text-green-600'}>
-                    {formatCurrency(selectedInvoice.balance_due)}
-                  </span>
+                  {Number(selectedInvoice.amount_paid) > 0 && (
+                    <div className="flex justify-between py-1 text-green-600">
+                      <span>Pagado:</span>
+                      <span>{formatCurrency(selectedInvoice.amount_paid)}</span>
+                    </div>
+                  )}
+                  {Number(selectedInvoice.balance_due) > 0 && (
+                    <div className="flex justify-between py-2 bg-red-50 px-2 rounded font-semibold text-red-600">
+                      <span>PENDIENTE:</span>
+                      <span>{formatCurrency(selectedInvoice.balance_due)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Footer Note */}
+              <div className="mt-8 pt-4 border-t text-center text-sm text-gray-500 print:mt-12">
+                <p>Gracias por su preferencia</p>
+                <p className="mt-1">Para consultas: info@aguadulcetrack.com</p>
+              </div>
             </div>
-            <div className="p-4 border-t flex justify-end gap-2">
-              {(selectedInvoice.status === 'sent' || selectedInvoice.status === 'overdue') && (
+
+            {/* Modal Footer - hidden when printing */}
+            <div className="p-4 border-t flex justify-between gap-2 print:hidden">
+              <div className="flex gap-2">
                 <button
-                  onClick={() => {
-                    setShowDetailsModal(false);
-                    setPaymentAmount(selectedInvoice.balance_due);
-                    setShowPaymentModal(true);
-                  }}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  onClick={handlePrintInvoice}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
                 >
-                  Registrar Pago
+                  <PrinterIcon className="h-4 w-4" />
+                  Imprimir
                 </button>
-              )}
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                Cerrar
-              </button>
+                <button
+                  onClick={handleSendEmail}
+                  disabled={sendingEmail}
+                  className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center gap-2 disabled:opacity-50"
+                >
+                  <EnvelopeIcon className="h-4 w-4" />
+                  {sendingEmail ? 'Enviando...' : 'Email'}
+                </button>
+                <button
+                  onClick={handleSendWhatsApp}
+                  className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 flex items-center gap-2"
+                >
+                  <ChatBubbleLeftIcon className="h-4 w-4" />
+                  WhatsApp
+                </button>
+              </div>
+              <div className="flex gap-2">
+                {(selectedInvoice.status === 'sent' || selectedInvoice.status === 'overdue') && (
+                  <button
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setPaymentAmount(selectedInvoice.balance_due);
+                      setShowPaymentModal(true);
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    Registrar Pago
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
           </div>
         </div>
