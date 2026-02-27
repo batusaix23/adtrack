@@ -62,11 +62,12 @@ router.get('/search', authenticate, async (req, res, next) => {
       return res.json({ items: [] });
     }
 
+    // Use SELECT * to handle cases where some columns may not exist yet
     const result = await query(
-      `SELECT id, name, sku, description, item_type, category, base_price, cost_price, unit, tax_rate
+      `SELECT *
        FROM service_items
        WHERE company_id = $1 AND is_active = true
-         AND (name ILIKE $2 OR sku ILIKE $2 OR description ILIKE $2)
+         AND (name ILIKE $2 OR description ILIKE $2)
        ORDER BY name
        LIMIT 20`,
       [req.user.company_id, `%${q}%`]

@@ -367,6 +367,9 @@ async function runMigrations() {
       'default_payment_method VARCHAR(50)',
       'latitude DECIMAL(10, 8)',
       'longitude DECIMAL(11, 8)',
+      // First/Last name columns (may be missing from old tables)
+      'first_name VARCHAR(100)',
+      'last_name VARCHAR(100)',
       // Zoho-style contact fields
       'salutation VARCHAR(10)',
       'display_name VARCHAR(255)',
