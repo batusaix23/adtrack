@@ -62,12 +62,12 @@ router.get('/search', authenticate, async (req, res, next) => {
       return res.json({ items: [] });
     }
 
-    // Use SELECT * to handle cases where some columns may not exist yet
+    // Use SELECT * and only search by name to avoid missing column issues
     const result = await query(
       `SELECT *
        FROM service_items
        WHERE company_id = $1 AND is_active = true
-         AND (name ILIKE $2 OR description ILIKE $2)
+         AND name ILIKE $2
        ORDER BY name
        LIMIT 20`,
       [req.user.company_id, `%${q}%`]
@@ -75,7 +75,8 @@ router.get('/search', authenticate, async (req, res, next) => {
 
     res.json({ items: result.rows });
   } catch (error) {
-    next(error);
+    console.error('Service items search error:', error);
+    res.status(500).json({ error: 'Error buscando items', details: error.message });
   }
 });
 
