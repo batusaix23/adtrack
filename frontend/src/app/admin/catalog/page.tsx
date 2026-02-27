@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { AdminLayout } from '@/components/layout/AdminLayout';
 import axios from 'axios';
 import {
   PlusIcon,
@@ -176,13 +177,16 @@ export default function CatalogPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-      </div>
+      <AdminLayout title={language === 'es' ? 'Catálogo' : 'Catalog'}>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        </div>
+      </AdminLayout>
     );
   }
 
   return (
+    <AdminLayout title={language === 'es' ? 'Catálogo' : 'Catalog'}>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -335,8 +339,8 @@ export default function CatalogPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg">
-            <div className="p-4 border-b flex justify-between items-center">
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white">
               <h2 className="text-lg font-semibold">
                 {editingItem
                   ? (language === 'es' ? 'Editar Item' : 'Edit Item')
@@ -535,5 +539,6 @@ export default function CatalogPage() {
         </div>
       )}
     </div>
+    </AdminLayout>
   );
 }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { AdminLayout } from '@/components/layout/AdminLayout';
 import axios from 'axios';
 import {
   DocumentTextIcon,
@@ -387,13 +388,16 @@ export default function InvoicesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-      </div>
+      <AdminLayout title="Facturas">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        </div>
+      </AdminLayout>
     );
   }
 
   return (
+    <AdminLayout title="Facturas">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -1091,5 +1095,6 @@ export default function InvoicesPage() {
         </div>
       )}
     </div>
+    </AdminLayout>
   );
 }
