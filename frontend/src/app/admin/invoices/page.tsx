@@ -59,11 +59,12 @@ interface InvoiceItem {
 
 interface Client {
   id: string;
-  first_name: string;
-  last_name: string;
-  display_name: string;
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+  display_name?: string;
   email: string;
-  monthly_service_cost: string;
+  monthly_service_cost?: string;
 }
 
 interface ServiceItem {
@@ -91,7 +92,6 @@ interface NewItem {
   description: string;
   quantity: number;
   unitPrice: number;
-  discountPercent: number;
   serviceItemId: string | null;
 }
 
@@ -116,13 +116,14 @@ export default function InvoicesPage() {
   // New invoice form
   const [newInvoiceClient, setNewInvoiceClient] = useState('');
   const [newInvoiceItems, setNewInvoiceItems] = useState<NewItem[]>([
-    { description: '', quantity: 1, unitPrice: 0, discountPercent: 0, serviceItemId: null }
+    { description: '', quantity: 1, unitPrice: 0, serviceItemId: null }
   ]);
-  const [newInvoiceTaxRate, setNewInvoiceTaxRate] = useState(0);
+  const [newInvoiceTaxRate, setNewInvoiceTaxRate] = useState(7.0);
   const [newInvoiceDiscount, setNewInvoiceDiscount] = useState(0);
   const [newInvoiceAdjustment, setNewInvoiceAdjustment] = useState(0);
   const [newInvoiceAdjustmentDesc, setNewInvoiceAdjustmentDesc] = useState('');
   const [newInvoiceNotes, setNewInvoiceNotes] = useState('');
+  const [newInvoiceIssueDate, setNewInvoiceIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [newInvoiceDueDate, setNewInvoiceDueDate] = useState('');
 
   // Item search
@@ -242,6 +243,14 @@ export default function InvoicesPage() {
     return labels[status] || status;
   };
 
+  const getClientDisplayName = (client: Client) => {
+    if (client.display_name) return client.display_name;
+    if (client.first_name || client.last_name) {
+      return `${client.first_name || ''} ${client.last_name || ''}`.trim();
+    }
+    return client.name || 'Cliente';
+  };
+
   const handleCreateInvoice = async () => {
     if (!newInvoiceClient || newInvoiceItems.length === 0) return;
 
@@ -253,7 +262,6 @@ export default function InvoicesPage() {
           description: item.description,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          discountPercent: item.discountPercent,
           serviceItemId: item.serviceItemId,
         })),
         taxRate: newInvoiceTaxRate,
@@ -261,6 +269,7 @@ export default function InvoicesPage() {
         adjustmentAmount: newInvoiceAdjustment,
         adjustmentDescription: newInvoiceAdjustmentDesc,
         notes: newInvoiceNotes,
+        issueDate: newInvoiceIssueDate,
         dueDate: newInvoiceDueDate || undefined,
       }, getAuthHeaders());
 
@@ -347,17 +356,18 @@ export default function InvoicesPage() {
 
   const resetNewInvoiceForm = () => {
     setNewInvoiceClient('');
-    setNewInvoiceItems([{ description: '', quantity: 1, unitPrice: 0, discountPercent: 0, serviceItemId: null }]);
-    setNewInvoiceTaxRate(0);
+    setNewInvoiceItems([{ description: '', quantity: 1, unitPrice: 0, serviceItemId: null }]);
+    setNewInvoiceTaxRate(7.0);
     setNewInvoiceDiscount(0);
     setNewInvoiceAdjustment(0);
     setNewInvoiceAdjustmentDesc('');
     setNewInvoiceNotes('');
+    setNewInvoiceIssueDate(new Date().toISOString().split('T')[0]);
     setNewInvoiceDueDate('');
   };
 
   const addItem = () => {
-    setNewInvoiceItems([...newInvoiceItems, { description: '', quantity: 1, unitPrice: 0, discountPercent: 0, serviceItemId: null }]);
+    setNewInvoiceItems([...newInvoiceItems, { description: '', quantity: 1, unitPrice: 0, serviceItemId: null }]);
   };
 
   const removeItem = (index: number) => {
@@ -371,9 +381,7 @@ export default function InvoicesPage() {
   };
 
   const calculateLineTotal = (item: NewItem) => {
-    const subtotal = item.quantity * item.unitPrice;
-    const discount = subtotal * (item.discountPercent / 100);
-    return subtotal - discount;
+    return item.quantity * item.unitPrice;
   };
 
   const calculateSubtotal = () => {
@@ -498,7 +506,7 @@ export default function InvoicesPage() {
           <option value="">Todos los clientes</option>
           {clients.map(client => (
             <option key={client.id} value={client.id}>
-              {client.display_name || `${client.first_name} ${client.last_name}`}
+              {getClientDisplayName(client)}
             </option>
           ))}
         </select>
@@ -627,7 +635,7 @@ export default function InvoicesPage() {
                     <option value="">Seleccionar cliente...</option>
                     {clients.map(client => (
                       <option key={client.id} value={client.id}>
-                        {client.display_name || `${client.first_name} ${client.last_name}`}
+                        {getClientDisplayName(client)}
                         {client.monthly_service_cost && ` - ${formatCurrency(client.monthly_service_cost)}/mes`}
                       </option>
                     ))}
@@ -653,7 +661,6 @@ export default function InvoicesPage() {
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Item</th>
                         <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 w-20">Cant</th>
                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-28">Precio</th>
-                        <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 w-20">Desc %</th>
                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-28">Total</th>
                         <th className="px-3 py-2 w-10"></th>
                       </tr>
@@ -720,16 +727,6 @@ export default function InvoicesPage() {
                               className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-right focus:ring-2 focus:ring-primary-500"
                             />
                           </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={item.discountPercent}
-                              onChange={(e) => updateItem(index, 'discountPercent', Number(e.target.value))}
-                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500"
-                            />
-                          </td>
                           <td className="px-3 py-2 text-right text-sm font-medium">
                             {formatCurrency(calculateLineTotal(item))}
                           </td>
@@ -757,8 +754,30 @@ export default function InvoicesPage() {
                 </button>
               </div>
 
-              {/* Tax, Discount, Adjustment */}
-              <div className="grid grid-cols-3 gap-4">
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Emisión</label>
+                  <input
+                    type="date"
+                    value={newInvoiceIssueDate}
+                    onChange={(e) => setNewInvoiceIssueDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Vencimiento</label>
+                  <input
+                    type="date"
+                    value={newInvoiceDueDate}
+                    onChange={(e) => setNewInvoiceDueDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+
+              {/* Tax and Discount */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">IVU (%)</label>
                   <input
@@ -776,15 +795,6 @@ export default function InvoicesPage() {
                     step="0.01"
                     value={newInvoiceDiscount}
                     onChange={(e) => setNewInvoiceDiscount(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Vencimiento</label>
-                  <input
-                    type="date"
-                    value={newInvoiceDueDate}
-                    onChange={(e) => setNewInvoiceDueDate(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   />
                 </div>

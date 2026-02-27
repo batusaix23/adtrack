@@ -511,10 +511,10 @@ export default function CatalogPage() {
                 <div className="flex items-end">
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, taxRate: '11.5' })}
+                    onClick={() => setFormData({ ...formData, taxRate: '7.0' })}
                     className="w-full px-3 py-2 text-sm text-primary-600 border border-primary-300 rounded-lg hover:bg-primary-50"
                   >
-                    IVU PR (11.5%)
+                    IVU PR (7%)
                   </button>
                 </div>
               </div>
