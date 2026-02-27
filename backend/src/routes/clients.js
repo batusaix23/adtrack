@@ -141,39 +141,69 @@ router.post('/', authenticate, authorizeRoles('owner', 'admin'), async (req, res
     const finalDisplayName = displayName ||
       (companyName ? companyName : `${clientFirstName}${lastName ? ' ' + lastName : ''}`);
 
-    const result = await query(
-      `INSERT INTO clients (
-        company_id, first_name, last_name, company_name, email, phone, phone_secondary,
-        address, address_line2, city, state, zip_code,
-        billing_address, billing_city, billing_state, billing_zip, billing_email, billing_country,
-        shipping_address, shipping_city, shipping_state, shipping_zip, shipping_country,
-        client_type, service_frequency, service_days, preferred_time,
-        monthly_service_cost, stabilizer_cost, stabilizer_frequency_months,
-        gate_code, access_notes, notes, internal_notes,
-        autopay_enabled, portal_enabled,
-        salutation, display_name, mobile, website, tax_id,
-        payment_terms, credit_limit, currency, portal_language,
-        assigned_technician_id,
-        name, status
-       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, 'active')
-       RETURNING *`,
-      [
-        req.user.company_id, clientFirstName, lastName, companyName, email, phone, phoneSecondary,
-        address, addressLine2, city, state, zipCode,
-        billingAddress, billingCity, billingState, billingZip, billingEmail, billingCountry || 'Puerto Rico',
-        shippingAddress, shippingCity, shippingState, shippingZip, shippingCountry || 'Puerto Rico',
-        clientType || 'residential', serviceFrequency || '1x_week',
-        JSON.stringify(serviceDays || []), preferredTime,
-        monthlyServiceCost, stabilizerCost, stabilizerFrequencyMonths || 3,
-        gateCode, accessNotes, notes, internalNotes,
-        autopayEnabled || false, portalEnabled || false,
-        salutation, finalDisplayName, mobile, website, taxId,
-        paymentTerms || 'net_30', creditLimit, currency || 'USD', portalLanguage || 'es',
-        assignedTechnicianId || null,
-        clientFirstName
-      ]
-    );
+    // Try new schema first, fall back to legacy if columns don't exist
+    let result;
+    try {
+      result = await query(
+        `INSERT INTO clients (
+          company_id, first_name, last_name, company_name, email, phone, phone_secondary,
+          address, address_line2, city, state, zip_code,
+          billing_address, billing_city, billing_state, billing_zip, billing_email, billing_country,
+          shipping_address, shipping_city, shipping_state, shipping_zip, shipping_country,
+          client_type, service_frequency, service_days, preferred_time,
+          monthly_service_cost, stabilizer_cost, stabilizer_frequency_months,
+          gate_code, access_notes, notes, internal_notes,
+          autopay_enabled, portal_enabled,
+          salutation, display_name, mobile, website, tax_id,
+          payment_terms, credit_limit, currency, portal_language,
+          assigned_technician_id,
+          name, status
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, 'active')
+         RETURNING *`,
+        [
+          req.user.company_id, clientFirstName, lastName, companyName, email, phone, phoneSecondary,
+          address, addressLine2, city, state, zipCode,
+          billingAddress, billingCity, billingState, billingZip, billingEmail, billingCountry || 'Puerto Rico',
+          shippingAddress, shippingCity, shippingState, shippingZip, shippingCountry || 'Puerto Rico',
+          clientType || 'residential', serviceFrequency || '1x_week',
+          JSON.stringify(serviceDays || []), preferredTime,
+          monthlyServiceCost, stabilizerCost, stabilizerFrequencyMonths || 3,
+          gateCode, accessNotes, notes, internalNotes,
+          autopayEnabled || false, portalEnabled || false,
+          salutation, finalDisplayName, mobile, website, taxId,
+          paymentTerms || 'net_30', creditLimit, currency || 'USD', portalLanguage || 'es',
+          assignedTechnicianId || null,
+          clientFirstName
+        ]
+      );
+    } catch (schemaError) {
+      // Fallback to legacy schema (without new columns)
+      if (schemaError.message?.includes('column') || schemaError.code === '42703') {
+        result = await query(
+          `INSERT INTO clients (
+            company_id, name, email, phone,
+            address, city, state, zip_code,
+            billing_address, billing_city, billing_state, billing_zip, billing_email,
+            client_type, service_frequency,
+            monthly_service_cost, gate_code, access_notes, notes,
+            autopay_enabled, portal_enabled, status
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, 'active')
+           RETURNING *`,
+          [
+            req.user.company_id, clientFirstName, email, phone,
+            address, city, state, zipCode,
+            billingAddress, billingCity, billingState, billingZip, billingEmail,
+            clientType || 'residential', serviceFrequency || '1x_week',
+            monthlyServiceCost, gateCode, accessNotes, notes,
+            autopayEnabled || false, portalEnabled || false
+          ]
+        );
+      } else {
+        throw schemaError;
+      }
+    }
 
     res.status(201).json({ client: result.rows[0] });
   } catch (error) {
