@@ -5,6 +5,90 @@ const { authorizeRoles } = require('../middleware/authorize');
 
 const router = express.Router();
 
+// Get low stock alerts - MUST be before /:id route
+router.get('/status/low-stock', authenticate, async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT inv.*, ch.name, ch.unit
+       FROM inventory inv
+       JOIN chemicals ch ON inv.chemical_id = ch.id
+       WHERE inv.company_id = $1 AND inv.quantity <= inv.min_stock_level AND ch.is_active = true
+       ORDER BY (inv.min_stock_level - inv.quantity) DESC`,
+      [req.user.company_id]
+    );
+
+    res.json({ lowStockItems: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get zero stock items (critical alerts)
+router.get('/status/zero-stock', authenticate, async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT inv.*, ch.name, ch.unit
+       FROM inventory inv
+       JOIN chemicals ch ON inv.chemical_id = ch.id
+       WHERE inv.company_id = $1 AND inv.quantity <= 0 AND ch.is_active = true
+       ORDER BY ch.name`,
+      [req.user.company_id]
+    );
+
+    res.json({ zeroStockItems: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Check and create inventory alerts
+router.post('/check-alerts', authenticate, authorizeRoles('owner', 'admin'), async (req, res, next) => {
+  try {
+    // Get items at or below minimum stock
+    const lowStock = await query(
+      `SELECT inv.id, inv.quantity, inv.min_stock_level, ch.name
+       FROM inventory inv
+       JOIN chemicals ch ON inv.chemical_id = ch.id
+       WHERE inv.company_id = $1 AND inv.quantity <= inv.min_stock_level AND ch.is_active = true`,
+      [req.user.company_id]
+    );
+
+    const alertsCreated = [];
+
+    for (const item of lowStock.rows) {
+      // Check if alert already exists for this item
+      const existingAlert = await query(
+        `SELECT id FROM alerts
+         WHERE company_id = $1 AND type = 'inventory' AND status = 'active'
+         AND metadata->>'inventory_id' = $2`,
+        [req.user.company_id, item.id]
+      );
+
+      if (existingAlert.rows.length === 0) {
+        const priority = item.quantity <= 0 ? 'critical' : 'high';
+        const title = item.quantity <= 0
+          ? `Sin stock: ${item.name}`
+          : `Stock bajo: ${item.name}`;
+        const message = `Cantidad actual: ${item.quantity}. Nivel mínimo: ${item.min_stock_level}`;
+
+        await query(
+          `INSERT INTO alerts (company_id, type, title, message, priority, metadata)
+           VALUES ($1, 'inventory', $2, $3, $4, $5)`,
+          [req.user.company_id, title, message, priority, JSON.stringify({ inventory_id: item.id })]
+        );
+        alertsCreated.push(item.name);
+      }
+    }
+
+    res.json({
+      message: `Se verificaron ${lowStock.rows.length} items`,
+      alertsCreated
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get all inventory
 router.get('/', authenticate, async (req, res, next) => {
   try {
@@ -188,24 +272,6 @@ router.get('/:id/movements', authenticate, async (req, res, next) => {
     );
 
     res.json({ movements: result.rows });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Get low stock alerts
-router.get('/status/low-stock', authenticate, async (req, res, next) => {
-  try {
-    const result = await query(
-      `SELECT inv.*, ch.name, ch.unit
-       FROM inventory inv
-       JOIN chemicals ch ON inv.chemical_id = ch.id
-       WHERE inv.company_id = $1 AND inv.quantity <= inv.min_stock_level AND ch.is_active = true
-       ORDER BY (inv.min_stock_level - inv.quantity) DESC`,
-      [req.user.company_id]
-    );
-
-    res.json({ lowStockItems: result.rows });
   } catch (error) {
     next(error);
   }

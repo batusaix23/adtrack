@@ -6,6 +6,23 @@ const { authorizeRoles } = require('../middleware/authorize');
 
 const router = express.Router();
 
+// Get technicians (for assignment dropdowns) - MUST be before /:id route
+router.get('/list/technicians', authenticate, async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT id, first_name, last_name, email
+       FROM users
+       WHERE company_id = $1 AND role = 'technician' AND is_active = true
+       ORDER BY first_name, last_name`,
+      [req.user.company_id]
+    );
+
+    res.json({ technicians: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get all users (admin only)
 router.get('/', authenticate, authorizeRoles('owner', 'admin'), async (req, res, next) => {
   try {
@@ -150,23 +167,6 @@ router.delete('/:id', authenticate, authorizeRoles('owner'), async (req, res, ne
     await query('DELETE FROM users WHERE id = $1', [req.params.id]);
 
     res.json({ message: 'Usuario eliminado exitosamente' });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Get technicians (for assignment dropdowns)
-router.get('/list/technicians', authenticate, async (req, res, next) => {
-  try {
-    const result = await query(
-      `SELECT id, first_name, last_name, email
-       FROM users
-       WHERE company_id = $1 AND role = 'technician' AND is_active = true
-       ORDER BY first_name, last_name`,
-      [req.user.company_id]
-    );
-
-    res.json({ technicians: result.rows });
   } catch (error) {
     next(error);
   }

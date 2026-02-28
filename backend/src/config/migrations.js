@@ -358,6 +358,7 @@ async function runMigrations() {
       'billing_email VARCHAR(255)',
       'service_frequency VARCHAR(20) DEFAULT \'1x_week\'',
       'service_days JSONB DEFAULT \'[]\'',
+      'service_day VARCHAR(20)',
       'preferred_time VARCHAR(20)',
       'monthly_service_cost DECIMAL(10,2)',
       'stabilizer_cost DECIMAL(10,2)',
@@ -388,7 +389,9 @@ async function runMigrations() {
       'shipping_country VARCHAR(100) DEFAULT \'Puerto Rico\'',
       // Portal language
       'portal_language VARCHAR(5) DEFAULT \'es\'',
-      'billing_country VARCHAR(100) DEFAULT \'Puerto Rico\''
+      'billing_country VARCHAR(100) DEFAULT \'Puerto Rico\'',
+      // Status
+      'is_active BOOLEAN DEFAULT true'
     ];
 
     for (const col of clientColumns) {

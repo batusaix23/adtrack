@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AdminLayout } from '@/components/layout/AdminLayout';
-import axios from 'axios';
+import api from '@/lib/api';
+import toast from 'react-hot-toast';
 import {
   PlusIcon,
   PencilIcon,
@@ -61,17 +62,12 @@ export default function CatalogPage() {
     taxRate: '0',
   });
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchItems();
     fetchCategories();
   }, [typeFilter, categoryFilter]);
-
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
-    return { headers: { Authorization: `Bearer ${token}` } };
-  };
 
   const fetchItems = async () => {
     try {
@@ -79,10 +75,11 @@ export default function CatalogPage() {
       if (typeFilter) params.append('type', typeFilter);
       if (categoryFilter) params.append('category', categoryFilter);
 
-      const res = await axios.get(`${apiUrl}/service-items?${params}`, getAuthHeaders());
+      const res = await api.get(`/service-items?${params}`);
       setItems(res.data.items || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching items:', error);
+      toast.error(language === 'es' ? 'Error al cargar items' : 'Error loading items');
     } finally {
       setLoading(false);
     }
@@ -90,7 +87,7 @@ export default function CatalogPage() {
 
   const fetchCategories = async () => {
     try {
-      const res = await axios.get(`${apiUrl}/service-items/categories`, getAuthHeaders());
+      const res = await api.get('/service-items/categories');
       setCategories(res.data.categories || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -99,18 +96,24 @@ export default function CatalogPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     try {
       if (editingItem) {
-        await axios.put(`${apiUrl}/service-items/${editingItem.id}`, formData, getAuthHeaders());
+        await api.put(`/service-items/${editingItem.id}`, formData);
+        toast.success(language === 'es' ? 'Item actualizado' : 'Item updated');
       } else {
-        await axios.post(`${apiUrl}/service-items`, formData, getAuthHeaders());
+        await api.post('/service-items', formData);
+        toast.success(language === 'es' ? 'Item creado' : 'Item created');
       }
       setShowModal(false);
       resetForm();
       fetchItems();
       fetchCategories();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving item:', error);
+      toast.error(error.response?.data?.error || (language === 'es' ? 'Error al guardar' : 'Error saving'));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -133,10 +136,12 @@ export default function CatalogPage() {
   const handleDelete = async (itemId: string) => {
     if (!confirm(language === 'es' ? '¿Eliminar este item?' : 'Delete this item?')) return;
     try {
-      await axios.delete(`${apiUrl}/service-items/${itemId}`, getAuthHeaders());
+      await api.delete(`/service-items/${itemId}`);
+      toast.success(language === 'es' ? 'Item eliminado' : 'Item deleted');
       fetchItems();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting item:', error);
+      toast.error(error.response?.data?.error || (language === 'es' ? 'Error al eliminar' : 'Error deleting'));
     }
   };
 
@@ -523,15 +528,22 @@ export default function CatalogPage() {
                 <button
                   type="button"
                   onClick={() => { setShowModal(false); resetForm(); }}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                  disabled={saving}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                 >
                   {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  disabled={saving}
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2"
                 >
-                  {t('common.save')}
+                  {saving && (
+                    <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                  )}
+                  {saving
+                    ? (language === 'es' ? 'Guardando...' : 'Saving...')
+                    : t('common.save')}
                 </button>
               </div>
             </form>

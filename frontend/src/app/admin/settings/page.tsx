@@ -23,6 +23,7 @@ import {
   PlusIcon,
   PencilIcon,
   TrashIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 
 interface Technician {
@@ -77,6 +78,24 @@ export default function SettingsPage() {
     confirmPassword: '',
   });
 
+  const [invoiceTemplate, setInvoiceTemplate] = useState({
+    showLogo: true,
+    logoPosition: 'left',
+    primaryColor: '#3B82F6',
+    companyNameOnInvoice: '',
+    invoicePrefix: 'INV-',
+    nextInvoiceNumber: 1,
+    defaultNotes: 'Gracias por su preferencia.',
+    defaultTerms: 'Pago debido al recibir. Se aplicarán cargos por mora después de 30 días.',
+    showPaymentInstructions: true,
+    paymentInstructions: '',
+    showBankInfo: false,
+    bankName: '',
+    bankAccount: '',
+    bankRouting: '',
+    footerText: '',
+  });
+
   const { register, handleSubmit, reset, formState: { errors } } = useForm<TechnicianForm>();
 
   // Load company data when it arrives
@@ -99,6 +118,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: 'company', label: 'Empresa', icon: BuildingOfficeIcon },
     { id: 'technicians', label: 'Técnicos', icon: UsersIcon },
+    { id: 'invoice', label: 'Plantilla Factura', icon: DocumentTextIcon },
     { id: 'profile', label: 'Perfil', icon: UserIcon },
     { id: 'security', label: 'Seguridad', icon: ShieldCheckIcon },
     { id: 'notifications', label: 'Notificaciones', icon: BellIcon },
@@ -384,6 +404,190 @@ export default function SettingsPage() {
                     </div>
                   ))
                 )}
+              </div>
+            </Card>
+          )}
+
+          {activeTab === 'invoice' && (
+            <Card>
+              <CardHeader
+                title="Plantilla de Factura"
+                subtitle="Personaliza el diseño y contenido de tus facturas"
+              />
+              <div className="space-y-6">
+                {/* Logo & Branding */}
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-900 border-b pb-2">Logo y Marca</h4>
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">Mostrar logo en facturas</p>
+                      <p className="text-sm text-gray-500">El logo aparecerá en la parte superior de la factura</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={invoiceTemplate.showLogo}
+                        onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, showLogo: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Posición del logo</label>
+                      <select
+                        value={invoiceTemplate.logoPosition}
+                        onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, logoPosition: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="left">Izquierda</option>
+                        <option value="center">Centro</option>
+                        <option value="right">Derecha</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Color principal</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="color"
+                          value={invoiceTemplate.primaryColor}
+                          onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, primaryColor: e.target.value })}
+                          className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={invoiceTemplate.primaryColor}
+                          onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, primaryColor: e.target.value })}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 font-mono text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Numbering */}
+                <div className="space-y-4 pt-4">
+                  <h4 className="font-medium text-gray-900 border-b pb-2">Numeración</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Prefijo de factura"
+                      value={invoiceTemplate.invoicePrefix}
+                      onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, invoicePrefix: e.target.value })}
+                      placeholder="INV-"
+                    />
+                    <Input
+                      label="Próximo número"
+                      type="number"
+                      value={invoiceTemplate.nextInvoiceNumber}
+                      onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, nextInvoiceNumber: parseInt(e.target.value) || 1 })}
+                    />
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    La próxima factura será: <span className="font-mono font-medium">{invoiceTemplate.invoicePrefix}{String(invoiceTemplate.nextInvoiceNumber).padStart(5, '0')}</span>
+                  </p>
+                </div>
+
+                {/* Default Text */}
+                <div className="space-y-4 pt-4">
+                  <h4 className="font-medium text-gray-900 border-b pb-2">Texto predeterminado</h4>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Notas (aparecen en cada factura)</label>
+                    <textarea
+                      value={invoiceTemplate.defaultNotes}
+                      onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, defaultNotes: e.target.value })}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      placeholder="Gracias por su preferencia."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Términos y condiciones</label>
+                    <textarea
+                      value={invoiceTemplate.defaultTerms}
+                      onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, defaultTerms: e.target.value })}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      placeholder="Pago debido al recibir..."
+                    />
+                  </div>
+                </div>
+
+                {/* Payment Info */}
+                <div className="space-y-4 pt-4">
+                  <h4 className="font-medium text-gray-900 border-b pb-2">Información de Pago</h4>
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">Mostrar información bancaria</p>
+                      <p className="text-sm text-gray-500">Incluir datos bancarios para transferencias</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={invoiceTemplate.showBankInfo}
+                        onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, showBankInfo: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                    </label>
+                  </div>
+
+                  {invoiceTemplate.showBankInfo && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Input
+                        label="Nombre del banco"
+                        value={invoiceTemplate.bankName}
+                        onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, bankName: e.target.value })}
+                      />
+                      <Input
+                        label="Número de cuenta"
+                        value={invoiceTemplate.bankAccount}
+                        onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, bankAccount: e.target.value })}
+                      />
+                      <Input
+                        label="Número de ruta (routing)"
+                        value={invoiceTemplate.bankRouting}
+                        onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, bankRouting: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Instrucciones de pago adicionales</label>
+                    <textarea
+                      value={invoiceTemplate.paymentInstructions}
+                      onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, paymentInstructions: e.target.value })}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      placeholder="ATH Móvil: 787-XXX-XXXX, PayPal: empresa@email.com"
+                    />
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="space-y-4 pt-4">
+                  <h4 className="font-medium text-gray-900 border-b pb-2">Pie de página</h4>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Texto del pie de página</label>
+                    <textarea
+                      value={invoiceTemplate.footerText}
+                      onChange={(e) => setInvoiceTemplate({ ...invoiceTemplate, footerText: e.target.value })}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      placeholder="Aguadulce Pool Service | www.aguadulcepool.com | 787-XXX-XXXX"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button onClick={() => toast.success('Plantilla guardada')} loading={loading}>
+                    Guardar Plantilla
+                  </Button>
+                  <Button variant="secondary" onClick={() => toast('Vista previa próximamente')}>
+                    Vista Previa
+                  </Button>
+                </div>
               </div>
             </Card>
           )}

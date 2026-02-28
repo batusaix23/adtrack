@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/database');
-const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const authenticate = require('../middleware/authenticate');
+const { authorizeRoles } = require('../middleware/authorize');
 
 // Get all technicians for company
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
   try {
     const result = await query(
       `SELECT
@@ -17,7 +18,7 @@ router.get('/', authenticateToken, async (req, res) => {
        FROM technicians
        WHERE company_id = $1
        ORDER BY first_name, last_name`,
-      [req.user.companyId]
+      [req.user.company_id]
     );
 
     res.json({ technicians: result.rows });
@@ -28,7 +29,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Get single technician
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticate, async (req, res) => {
   try {
     const result = await query(
       `SELECT
@@ -39,7 +40,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
         created_at, updated_at
        FROM technicians
        WHERE id = $1 AND company_id = $2`,
-      [req.params.id, req.user.companyId]
+      [req.params.id, req.user.company_id]
     );
 
     if (result.rows.length === 0) {
@@ -54,7 +55,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create technician
-router.post('/', authenticateToken, authorizeRoles('owner', 'admin'), async (req, res) => {
+router.post('/', authenticate, authorizeRoles('owner', 'admin'), async (req, res) => {
   try {
     const {
       firstName, lastName, phone, email,
@@ -72,7 +73,7 @@ router.post('/', authenticateToken, authorizeRoles('owner', 'admin'), async (req
     if (email) {
       const existing = await query(
         'SELECT id FROM technicians WHERE email = $1 AND company_id = $2',
-        [email, req.user.companyId]
+        [email, req.user.company_id]
       );
       if (existing.rows.length > 0) {
         return res.status(400).json({ error: 'Email already in use by another technician' });
@@ -94,7 +95,7 @@ router.post('/', authenticateToken, authorizeRoles('owner', 'admin'), async (req
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *`,
       [
-        req.user.companyId,
+        req.user.company_id,
         firstName,
         lastName,
         phone || null,
@@ -121,7 +122,7 @@ router.post('/', authenticateToken, authorizeRoles('owner', 'admin'), async (req
 });
 
 // Update technician
-router.put('/:id', authenticateToken, authorizeRoles('owner', 'admin'), async (req, res) => {
+router.put('/:id', authenticate, authorizeRoles('owner', 'admin'), async (req, res) => {
   try {
     const {
       firstName, lastName, phone, email,
@@ -133,7 +134,7 @@ router.put('/:id', authenticateToken, authorizeRoles('owner', 'admin'), async (r
     // Check technician exists
     const existing = await query(
       'SELECT id FROM technicians WHERE id = $1 AND company_id = $2',
-      [req.params.id, req.user.companyId]
+      [req.params.id, req.user.company_id]
     );
     if (existing.rows.length === 0) {
       return res.status(404).json({ error: 'Technician not found' });
@@ -143,7 +144,7 @@ router.put('/:id', authenticateToken, authorizeRoles('owner', 'admin'), async (r
     if (email) {
       const emailCheck = await query(
         'SELECT id FROM technicians WHERE email = $1 AND company_id = $2 AND id != $3',
-        [email, req.user.companyId, req.params.id]
+        [email, req.user.company_id, req.params.id]
       );
       if (emailCheck.rows.length > 0) {
         return res.status(400).json({ error: 'Email already in use' });
@@ -180,7 +181,7 @@ router.put('/:id', authenticateToken, authorizeRoles('owner', 'admin'), async (r
     updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
 
     values.push(req.params.id);
-    values.push(req.user.companyId);
+    values.push(req.user.company_id);
 
     const result = await query(
       `UPDATE technicians SET ${updateFields.join(', ')}
@@ -200,11 +201,11 @@ router.put('/:id', authenticateToken, authorizeRoles('owner', 'admin'), async (r
 });
 
 // Delete technician
-router.delete('/:id', authenticateToken, authorizeRoles('owner', 'admin'), async (req, res) => {
+router.delete('/:id', authenticate, authorizeRoles('owner', 'admin'), async (req, res) => {
   try {
     const result = await query(
       'DELETE FROM technicians WHERE id = $1 AND company_id = $2 RETURNING id',
-      [req.params.id, req.user.companyId]
+      [req.params.id, req.user.company_id]
     );
 
     if (result.rows.length === 0) {
@@ -219,7 +220,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('owner', 'admin'), async
 });
 
 // Get technician's route for a date
-router.get('/:id/route/:date', authenticateToken, async (req, res) => {
+router.get('/:id/route/:date', authenticate, async (req, res) => {
   try {
     const { id, date } = req.params;
 
@@ -229,7 +230,7 @@ router.get('/:id/route/:date', authenticateToken, async (req, res) => {
        FROM routes r
        LEFT JOIN technicians t ON r.technician_id = t.id
        WHERE r.technician_id = $1 AND r.route_date = $2 AND r.company_id = $3`,
-      [id, date, req.user.companyId]
+      [id, date, req.user.company_id]
     );
 
     if (routeResult.rows.length === 0) {
@@ -260,7 +261,7 @@ router.get('/:id/route/:date', authenticateToken, async (req, res) => {
 });
 
 // Get technician statistics
-router.get('/:id/stats', authenticateToken, async (req, res) => {
+router.get('/:id/stats', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const { startDate, endDate } = req.query;
@@ -277,7 +278,7 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
          AND company_id = $2
          AND scheduled_date BETWEEN $3 AND $4
          AND status = 'completed'`,
-      [id, req.user.companyId, start, end]
+      [id, req.user.company_id, start, end]
     );
 
     // Chemicals used
@@ -291,7 +292,7 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
        WHERE technician_id = $1
          AND company_id = $2
          AND scheduled_date BETWEEN $3 AND $4`,
-      [id, req.user.companyId, start, end]
+      [id, req.user.company_id, start, end]
     );
 
     res.json({

@@ -331,8 +331,10 @@ async function getRouteForDate(technicianId, companyId, date) {
   if (routeResult.rows.length === 0) {
     // Try to generate from schedule
     const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' });
+    const dayOfWeekLower = dayOfWeek.toLowerCase();
 
     // Check if there are clients assigned for this day
+    // Support both capitalized (Monday) and lowercase (monday) day names
     const clientsResult = await query(
       `SELECT c.* FROM clients c
        WHERE c.company_id = $1
@@ -341,10 +343,11 @@ async function getRouteForDate(technicianId, companyId, date) {
          AND c.status = 'active'
          AND (
            c.service_days::jsonb ? $3
-           OR c.service_day = $3
+           OR c.service_days::jsonb ? $4
+           OR LOWER(c.service_day) = $4
          )
        ORDER BY c.route_order, c.first_name`,
-      [companyId, technicianId, dayOfWeek]
+      [companyId, technicianId, dayOfWeek, dayOfWeekLower]
     );
 
     if (clientsResult.rows.length > 0) {

@@ -44,23 +44,28 @@ router.get('/', authenticate, async (req, res, next) => {
     const { search, active } = req.query;
 
     let sql = `
-      SELECT c.id, c.name, c.last_name, c.company_name, c.email, c.phone,
+      SELECT c.id, c.name, c.name as first_name, c.last_name, c.company_name,
+             c.display_name, c.email, c.phone, c.mobile,
              c.address, c.city, c.state, c.zip_code, c.notes, c.is_active,
-             c.service_day, c.service_frequency, c.client_type,
+             c.service_day, c.service_days, c.service_frequency, c.client_type,
+             c.assigned_technician_id, c.monthly_service_cost, c.stabilizer_cost,
+             c.gate_code, c.access_notes, c.payment_terms,
              c.portal_enabled, c.portal_email,
+             t.first_name as technician_first_name, t.last_name as technician_last_name,
              COUNT(p.id) as pool_count,
              (SELECT COUNT(*) FROM service_records sr
               JOIN pools p2 ON sr.pool_id = p2.id
               WHERE p2.client_id = c.id AND sr.status = 'completed') as total_services
       FROM clients c
       LEFT JOIN pools p ON p.client_id = c.id
+      LEFT JOIN users t ON c.assigned_technician_id = t.id
       WHERE c.company_id = $1
     `;
     const params = [req.user.company_id];
     let paramIndex = 2;
 
     if (search) {
-      sql += ` AND (c.name ILIKE $${paramIndex} OR c.email ILIKE $${paramIndex} OR c.phone ILIKE $${paramIndex})`;
+      sql += ` AND (c.name ILIKE $${paramIndex} OR c.email ILIKE $${paramIndex} OR c.phone ILIKE $${paramIndex} OR c.company_name ILIKE $${paramIndex})`;
       params.push(`%${search}%`);
       paramIndex++;
     }
@@ -70,7 +75,7 @@ router.get('/', authenticate, async (req, res, next) => {
       params.push(active === 'true');
     }
 
-    sql += ` GROUP BY c.id ORDER BY c.name`;
+    sql += ` GROUP BY c.id, t.first_name, t.last_name ORDER BY c.name`;
 
     const result = await query(sql, params);
     res.json({ clients: result.rows });
@@ -83,7 +88,8 @@ router.get('/', authenticate, async (req, res, next) => {
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
     const result = await query(
-      `SELECT c.*,
+      `SELECT c.*, c.name as first_name,
+              t.first_name as technician_first_name, t.last_name as technician_last_name,
               json_agg(json_build_object(
                 'id', p.id,
                 'name', p.name,
@@ -92,8 +98,9 @@ router.get('/:id', authenticate, async (req, res, next) => {
               ) ORDER BY p.name) FILTER (WHERE p.id IS NOT NULL) as pools
        FROM clients c
        LEFT JOIN pools p ON p.client_id = c.id AND p.is_active = true
+       LEFT JOIN users t ON c.assigned_technician_id = t.id
        WHERE c.id = $1 AND c.company_id = $2
-       GROUP BY c.id`,
+       GROUP BY c.id, t.first_name, t.last_name`,
       [req.params.id, req.user.company_id]
     );
 

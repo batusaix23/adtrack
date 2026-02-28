@@ -56,7 +56,7 @@ export default function ServicesPage() {
 
   const { data, mutate } = useSWR(`/services?${queryParams}`, fetcher);
   const { data: poolsData } = useSWR('/pools?active=true', fetcher);
-  const { data: techniciansData } = useSWR('/users/list/technicians', fetcher);
+  const { data: techniciansData } = useSWR('/technicians', fetcher);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ServiceForm>();
 
