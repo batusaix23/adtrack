@@ -117,6 +117,7 @@ let dbConnected = false;
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
+    version: '1.0.1-debug',
     database: dbConnected ? 'connected' : 'connecting',
     timestamp: new Date().toISOString()
   });
