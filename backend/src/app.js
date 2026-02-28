@@ -135,7 +135,9 @@ app.use('/api/portal', portalRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/platform', platformRoutes);
 app.use('/api/service-items', serviceItemsRoutes);
+console.log('Registering /api/technicians route...');
 app.use('/api/technicians', techniciansRoutes);
+console.log('/api/technicians route registered');
 app.use('/api/estimates', estimatesRoutes);
 app.use('/api/technician-portal', technicianPortalRoutes);
 

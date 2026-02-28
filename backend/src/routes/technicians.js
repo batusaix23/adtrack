@@ -5,8 +5,11 @@ const { query } = require('../config/database');
 const authenticate = require('../middleware/authenticate');
 const { authorizeRoles } = require('../middleware/authorize');
 
+console.log('Technicians routes module loaded');
+
 // Get all technicians for company
 router.get('/', authenticate, async (req, res) => {
+  console.log('GET /api/technicians called');
   try {
     const result = await query(
       `SELECT
