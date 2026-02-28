@@ -487,7 +487,7 @@ async function runMigrations() {
     // ROUTES & SCHEDULING
     // ============================================
 
-    -- Routes (daily route for a technician)
+    // Routes (daily route for a technician)
     await query(`
       CREATE TABLE IF NOT EXISTS routes (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -519,7 +519,7 @@ async function runMigrations() {
       )
     `);
 
-    -- Route Stops
+    // Route Stops
     await query(`
       CREATE TABLE IF NOT EXISTS route_stops (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

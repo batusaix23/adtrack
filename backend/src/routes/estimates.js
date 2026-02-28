@@ -1,16 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const authenticate = require('../middleware/authenticate');
+const { authorizeRoles } = require('../middleware/authorize');
 
 // Get all estimates
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
   try {
     const { status, clientId, page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
 
     let whereClause = 'WHERE e.company_id = $1';
-    const params = [req.user.companyId];
+    const params = [req.user.company_id];
     let paramCount = 2;
 
     if (status) {
@@ -61,7 +62,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Get single estimate with items
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticate, async (req, res) => {
   try {
     const estimateResult = await query(
       `SELECT e.*,
@@ -76,7 +77,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
        FROM estimates e
        JOIN clients c ON e.client_id = c.id
        WHERE e.id = $1 AND e.company_id = $2`,
-      [req.params.id, req.user.companyId]
+      [req.params.id, req.user.company_id]
     );
 
     if (estimateResult.rows.length === 0) {
@@ -99,7 +100,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create estimate
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticate, async (req, res) => {
   try {
     const {
       clientId, title, description, items,
@@ -116,7 +117,7 @@ router.post('/', authenticateToken, async (req, res) => {
        VALUES ($1)
        ON CONFLICT (company_id) DO UPDATE SET company_id = $1
        RETURNING next_estimate_number, estimate_prefix`,
-      [req.user.companyId]
+      [req.user.company_id]
     );
 
     const settings = settingsResult.rows[0];
@@ -141,7 +142,7 @@ router.post('/', authenticateToken, async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'draft')
       RETURNING *`,
       [
-        req.user.companyId, clientId, estimateNumber,
+        req.user.company_id, clientId, estimateNumber,
         title, description, subtotal, taxRate || 0, taxAmount,
         discountAmount || 0, total, validUntil, notes, terms,
         req.user.userId
@@ -163,7 +164,7 @@ router.post('/', authenticateToken, async (req, res) => {
     // Increment estimate number
     await query(
       `UPDATE invoice_settings SET next_estimate_number = next_estimate_number + 1 WHERE company_id = $1`,
-      [req.user.companyId]
+      [req.user.company_id]
     );
 
     res.status(201).json({ estimate });
@@ -174,7 +175,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Update estimate
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticate, async (req, res) => {
   try {
     const {
       title, description, items,
@@ -184,7 +185,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     // Check estimate exists and is editable
     const existing = await query(
       `SELECT * FROM estimates WHERE id = $1 AND company_id = $2`,
-      [req.params.id, req.user.companyId]
+      [req.params.id, req.user.company_id]
     );
 
     if (existing.rows.length === 0) {
@@ -241,7 +242,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
       [
         title, description, subtotal, taxRate, taxAmount,
         discountAmount, total, validUntil, notes, terms, status,
-        req.params.id, req.user.companyId
+        req.params.id, req.user.company_id
       ]
     );
 
@@ -253,7 +254,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // Send estimate to client
-router.post('/:id/send', authenticateToken, async (req, res) => {
+router.post('/:id/send', authenticate, async (req, res) => {
   try {
     const { via = 'email' } = req.body;
 
@@ -264,7 +265,7 @@ router.post('/:id/send', authenticateToken, async (req, res) => {
         updated_at = CURRENT_TIMESTAMP
        WHERE id = $1 AND company_id = $2
        RETURNING *`,
-      [req.params.id, req.user.companyId]
+      [req.params.id, req.user.company_id]
     );
 
     if (result.rows.length === 0) {
@@ -281,7 +282,7 @@ router.post('/:id/send', authenticateToken, async (req, res) => {
 });
 
 // Convert estimate to invoice
-router.post('/:id/convert', authenticateToken, async (req, res) => {
+router.post('/:id/convert', authenticate, async (req, res) => {
   try {
     // Get estimate with items
     const estimateResult = await query(
@@ -289,7 +290,7 @@ router.post('/:id/convert', authenticateToken, async (req, res) => {
        FROM estimates e
        JOIN clients c ON e.client_id = c.id
        WHERE e.id = $1 AND e.company_id = $2`,
-      [req.params.id, req.user.companyId]
+      [req.params.id, req.user.company_id]
     );
 
     if (estimateResult.rows.length === 0) {
@@ -311,7 +312,7 @@ router.post('/:id/convert', authenticateToken, async (req, res) => {
     const settingsResult = await query(
       `SELECT next_invoice_number, invoice_prefix, default_due_days
        FROM invoice_settings WHERE company_id = $1`,
-      [req.user.companyId]
+      [req.user.company_id]
     );
 
     const settings = settingsResult.rows[0] || { next_invoice_number: 1, invoice_prefix: 'INV-', default_due_days: 30 };
@@ -329,7 +330,7 @@ router.post('/:id/convert', authenticateToken, async (req, res) => {
       ) VALUES ($1, $2, $3, 'one_time', $4, $5, $6, $7, $8, $8, CURRENT_DATE, $9, $10, $11, $12, 'draft', $13)
       RETURNING *`,
       [
-        req.user.companyId, estimate.client_id, invoiceNumber,
+        req.user.company_id, estimate.client_id, invoiceNumber,
         estimate.subtotal, estimate.tax_rate, estimate.tax_amount,
         estimate.discount_amount, estimate.total, dueDate.toISOString().split('T')[0],
         estimate.notes, estimate.terms, estimate.id, req.user.userId
@@ -357,7 +358,7 @@ router.post('/:id/convert', authenticateToken, async (req, res) => {
     // Increment invoice number
     await query(
       `UPDATE invoice_settings SET next_invoice_number = next_invoice_number + 1 WHERE company_id = $1`,
-      [req.user.companyId]
+      [req.user.company_id]
     );
 
     res.json({ success: true, invoice });
@@ -368,12 +369,12 @@ router.post('/:id/convert', authenticateToken, async (req, res) => {
 });
 
 // Delete estimate
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticate, async (req, res) => {
   try {
     const result = await query(
       `DELETE FROM estimates WHERE id = $1 AND company_id = $2 AND status NOT IN ('converted')
        RETURNING id`,
-      [req.params.id, req.user.companyId]
+      [req.params.id, req.user.company_id]
     );
 
     if (result.rows.length === 0) {
