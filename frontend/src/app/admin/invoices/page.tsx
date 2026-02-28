@@ -151,7 +151,7 @@ export default function InvoicesPage() {
   }, [statusFilter, clientFilter]);
 
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('accessToken');
     return { headers: { Authorization: `Bearer ${token}` } };
   };
 

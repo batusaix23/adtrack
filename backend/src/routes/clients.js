@@ -58,7 +58,7 @@ router.get('/', authenticate, async (req, res, next) => {
               WHERE p2.client_id = c.id AND sr.status = 'completed') as total_services
       FROM clients c
       LEFT JOIN pools p ON p.client_id = c.id
-      LEFT JOIN users t ON c.assigned_technician_id = t.id
+      LEFT JOIN technicians t ON c.assigned_technician_id = t.id
       WHERE c.company_id = $1
     `;
     const params = [req.user.company_id];
@@ -98,7 +98,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
               ) ORDER BY p.name) FILTER (WHERE p.id IS NOT NULL) as pools
        FROM clients c
        LEFT JOIN pools p ON p.client_id = c.id AND p.is_active = true
-       LEFT JOIN users t ON c.assigned_technician_id = t.id
+       LEFT JOIN technicians t ON c.assigned_technician_id = t.id
        WHERE c.id = $1 AND c.company_id = $2
        GROUP BY c.id, t.first_name, t.last_name`,
       [req.params.id, req.user.company_id]
