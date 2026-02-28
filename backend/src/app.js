@@ -43,7 +43,15 @@ const portalRoutes = require('./routes/portal');
 const invoiceRoutes = require('./routes/invoices');
 const platformRoutes = require('./routes/platform');
 const serviceItemsRoutes = require('./routes/serviceItems');
-const techniciansRoutes = require('./routes/technicians');
+let techniciansRoutes;
+try {
+  techniciansRoutes = require('./routes/technicians');
+  console.log('Successfully loaded technicians routes');
+} catch (err) {
+  console.error('ERROR loading technicians routes:', err);
+  techniciansRoutes = express.Router();
+  techniciansRoutes.get('/', (req, res) => res.status(500).json({ error: 'Technicians routes failed to load' }));
+}
 const estimatesRoutes = require('./routes/estimates');
 const technicianPortalRoutes = require('./routes/technicianPortal');
 
@@ -136,8 +144,10 @@ app.use('/api/invoices', invoiceRoutes);
 app.use('/api/platform', platformRoutes);
 app.use('/api/service-items', serviceItemsRoutes);
 console.log('Registering /api/technicians route...');
+console.log('techniciansRoutes type:', typeof techniciansRoutes);
+console.log('techniciansRoutes stack length:', techniciansRoutes.stack ? techniciansRoutes.stack.length : 'no stack');
 app.use('/api/technicians', techniciansRoutes);
-console.log('/api/technicians route registered');
+console.log('/api/technicians route registered successfully');
 app.use('/api/estimates', estimatesRoutes);
 app.use('/api/technician-portal', technicianPortalRoutes);
 
