@@ -946,6 +946,44 @@ async function runMigrations() {
       } catch (e) { /* column exists */ }
     }
 
+    // ============================================
+    // SERVICE ITEMS CATALOG (must be before invoice_items)
+    // ============================================
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS service_items (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+
+        name VARCHAR(255) NOT NULL,
+        sku VARCHAR(100),
+        description TEXT,
+        item_type VARCHAR(50) DEFAULT 'service',
+        category VARCHAR(100),
+
+        base_price DECIMAL(10,2) NOT NULL,
+        cost_price DECIMAL(10,2),
+        unit VARCHAR(50) DEFAULT 'unit',
+        tax_rate DECIMAL(5,2) DEFAULT 0,
+
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Add missing columns to service_items
+    const serviceItemColumnsEarly = [
+      'sku VARCHAR(100)',
+      'cost_price DECIMAL(10,2)'
+    ];
+
+    for (const col of serviceItemColumnsEarly) {
+      try {
+        await query(`ALTER TABLE service_items ADD COLUMN IF NOT EXISTS ${col}`);
+      } catch (e) { /* column exists */ }
+    }
+
     await query(`
       CREATE TABLE IF NOT EXISTS invoice_items (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -1069,42 +1107,8 @@ async function runMigrations() {
     `);
 
     // ============================================
-    // SERVICE ITEMS CATALOG
+    // CLIENT SERVICE ITEMS (services assigned to clients)
     // ============================================
-
-    await query(`
-      CREATE TABLE IF NOT EXISTS service_items (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-
-        name VARCHAR(255) NOT NULL,
-        sku VARCHAR(100),
-        description TEXT,
-        item_type VARCHAR(50) DEFAULT 'service',
-        category VARCHAR(100),
-
-        base_price DECIMAL(10,2) NOT NULL,
-        cost_price DECIMAL(10,2),
-        unit VARCHAR(50) DEFAULT 'unit',
-        tax_rate DECIMAL(5,2) DEFAULT 0,
-
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Add missing columns to service_items
-    const serviceItemColumns = [
-      'sku VARCHAR(100)',
-      'cost_price DECIMAL(10,2)'
-    ];
-
-    for (const col of serviceItemColumns) {
-      try {
-        await query(`ALTER TABLE service_items ADD COLUMN IF NOT EXISTS ${col}`);
-      } catch (e) { /* column exists */ }
-    }
 
     await query(`
       CREATE TABLE IF NOT EXISTS client_service_items (
