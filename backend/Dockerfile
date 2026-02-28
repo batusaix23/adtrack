@@ -1,6 +1,9 @@
 # Backend Dockerfile
 FROM node:20-alpine
 
+# Cache buster - update this to force rebuild
+ARG CACHE_BUST=2026022801
+
 WORKDIR /app
 
 # Install dependencies
