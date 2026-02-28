@@ -145,7 +145,8 @@ router.get('/', authenticate, async (req, res) => {
               c.first_name as client_first_name,
               c.last_name as client_last_name,
               c.company_name as client_company,
-              c.email as client_email
+              c.email as client_email,
+              c.phone as client_phone
        FROM invoices i
        JOIN clients c ON i.client_id = c.id
        ${whereClause}
