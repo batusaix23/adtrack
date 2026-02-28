@@ -43,15 +43,7 @@ const portalRoutes = require('./routes/portal');
 const invoiceRoutes = require('./routes/invoices');
 const platformRoutes = require('./routes/platform');
 const serviceItemsRoutes = require('./routes/serviceItems');
-let techniciansRoutes;
-try {
-  techniciansRoutes = require('./routes/technicians');
-  console.log('Successfully loaded technicians routes');
-} catch (err) {
-  console.error('ERROR loading technicians routes:', err);
-  techniciansRoutes = express.Router();
-  techniciansRoutes.get('/', (req, res) => res.status(500).json({ error: 'Technicians routes failed to load' }));
-}
+const techniciansRoutes = require('./routes/technicians');
 const estimatesRoutes = require('./routes/estimates');
 const technicianPortalRoutes = require('./routes/technicianPortal');
 
@@ -117,7 +109,7 @@ let dbConnected = false;
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    version: '1.0.1-debug',
+    version: '1.0.1',
     database: dbConnected ? 'connected' : 'connecting',
     timestamp: new Date().toISOString()
   });
@@ -144,17 +136,7 @@ app.use('/api/portal', portalRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/platform', platformRoutes);
 app.use('/api/service-items', serviceItemsRoutes);
-// Direct test route to verify the path works
-app.get('/api/technicians-test', (req, res) => {
-  res.json({ status: 'ok', message: 'Direct technicians test route works' });
-});
-console.log('Direct /api/technicians-test route registered');
-
-console.log('Registering /api/technicians route...');
-console.log('techniciansRoutes type:', typeof techniciansRoutes);
-console.log('techniciansRoutes stack length:', techniciansRoutes.stack ? techniciansRoutes.stack.length : 'no stack');
 app.use('/api/technicians', techniciansRoutes);
-console.log('/api/technicians route registered successfully');
 app.use('/api/estimates', estimatesRoutes);
 app.use('/api/technician-portal', technicianPortalRoutes);
 

@@ -5,16 +5,8 @@ const { query } = require('../config/database');
 const authenticate = require('../middleware/authenticate');
 const { authorizeRoles } = require('../middleware/authorize');
 
-console.log('Technicians routes module loaded');
-
-// Test route (no auth required)
-router.get('/test', (req, res) => {
-  res.json({ status: 'ok', message: 'Technicians route is working' });
-});
-
 // Get all technicians for company
 router.get('/', authenticate, async (req, res) => {
-  console.log('GET /api/technicians called');
   try {
     const result = await query(
       `SELECT
