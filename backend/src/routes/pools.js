@@ -213,7 +213,7 @@ router.get('/:id/services', authenticate, async (req, res, next) => {
     const { limit = 20, offset = 0 } = req.query;
 
     const result = await query(
-      `SELECT sr.*, u.first_name || ' ' || u.last_name as technician_name,
+      `SELECT sr.*, t.first_name || ' ' || t.last_name as technician_name,
               json_agg(json_build_object(
                 'chemical_id', cu.chemical_id,
                 'quantity', cu.quantity,
@@ -221,11 +221,11 @@ router.get('/:id/services', authenticate, async (req, res, next) => {
                 'unit', ch.unit
               )) FILTER (WHERE cu.id IS NOT NULL) as chemicals_used
        FROM service_records sr
-       JOIN users u ON sr.technician_id = u.id
+       LEFT JOIN technicians t ON sr.technician_id = t.id
        LEFT JOIN chemical_usage cu ON cu.service_record_id = sr.id
        LEFT JOIN chemicals ch ON cu.chemical_id = ch.id
        WHERE sr.pool_id = $1 AND sr.company_id = $2
-       GROUP BY sr.id, u.first_name, u.last_name
+       GROUP BY sr.id, t.first_name, t.last_name
        ORDER BY sr.scheduled_date DESC
        LIMIT $3 OFFSET $4`,
       [req.params.id, req.user.company_id, limit, offset]

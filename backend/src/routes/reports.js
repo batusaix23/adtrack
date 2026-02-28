@@ -18,7 +18,7 @@ router.get('/services', authenticate, authorizeRoles('owner', 'admin'), async (r
 
     let sql = `
       SELECT sr.*, p.name as pool_name, c.name as client_name,
-             u.first_name || ' ' || u.last_name as technician_name,
+             t.first_name || ' ' || t.last_name as technician_name,
              (SELECT SUM(cu.quantity * ch.cost_per_unit)
               FROM chemical_usage cu
               JOIN chemicals ch ON cu.chemical_id = ch.id
@@ -26,7 +26,7 @@ router.get('/services', authenticate, authorizeRoles('owner', 'admin'), async (r
        FROM service_records sr
        JOIN pools p ON sr.pool_id = p.id
        JOIN clients c ON c.id = p.client_id
-       JOIN users u ON sr.technician_id = u.id
+       LEFT JOIN technicians t ON sr.technician_id = t.id
        WHERE sr.company_id = $1
          AND sr.scheduled_date BETWEEN $2 AND $3
          AND sr.status = 'completed'
@@ -74,11 +74,11 @@ router.get('/services/pdf', authenticate, authorizeRoles('owner', 'admin'), asyn
     const result = await query(
       `SELECT sr.scheduled_date, sr.duration_minutes, sr.ph_level, sr.chlorine_level,
               p.name as pool_name, c.name as client_name,
-              u.first_name || ' ' || u.last_name as technician_name
+              t.first_name || ' ' || t.last_name as technician_name
        FROM service_records sr
        JOIN pools p ON sr.pool_id = p.id
        JOIN clients c ON c.id = p.client_id
-       JOIN users u ON sr.technician_id = u.id
+       LEFT JOIN technicians t ON sr.technician_id = t.id
        WHERE sr.company_id = $1
          AND sr.scheduled_date BETWEEN $2 AND $3
          AND sr.status = 'completed'
@@ -157,11 +157,11 @@ router.get('/services/excel', authenticate, authorizeRoles('owner', 'admin'), as
       `SELECT sr.scheduled_date, sr.arrival_time, sr.departure_time, sr.duration_minutes,
               sr.ph_level, sr.chlorine_level, sr.alkalinity, sr.notes,
               p.name as pool_name, c.name as client_name,
-              u.first_name || ' ' || u.last_name as technician_name
+              t.first_name || ' ' || t.last_name as technician_name
        FROM service_records sr
        JOIN pools p ON sr.pool_id = p.id
        JOIN clients c ON c.id = p.client_id
-       JOIN users u ON sr.technician_id = u.id
+       LEFT JOIN technicians t ON sr.technician_id = t.id
        WHERE sr.company_id = $1
          AND sr.scheduled_date BETWEEN $2 AND $3
          AND sr.status = 'completed'
@@ -256,7 +256,7 @@ router.get('/client/:clientId', authenticate, async (req, res, next) => {
 
     let sql = `
       SELECT sr.*, p.name as pool_name,
-             u.first_name || ' ' || u.last_name as technician_name,
+             t.first_name || ' ' || t.last_name as technician_name,
              json_agg(json_build_object(
                'name', ch.name,
                'quantity', cu.quantity,
@@ -264,7 +264,7 @@ router.get('/client/:clientId', authenticate, async (req, res, next) => {
              )) FILTER (WHERE cu.id IS NOT NULL) as chemicals
        FROM service_records sr
        JOIN pools p ON sr.pool_id = p.id
-       JOIN users u ON sr.technician_id = u.id
+       LEFT JOIN technicians t ON sr.technician_id = t.id
        LEFT JOIN chemical_usage cu ON cu.service_record_id = sr.id
        LEFT JOIN chemicals ch ON cu.chemical_id = ch.id
        WHERE p.client_id = $1 AND sr.company_id = $2 AND sr.status = 'completed'
@@ -276,7 +276,7 @@ router.get('/client/:clientId', authenticate, async (req, res, next) => {
       params.push(startDate, endDate);
     }
 
-    sql += ` GROUP BY sr.id, p.name, u.first_name, u.last_name ORDER BY sr.scheduled_date DESC`;
+    sql += ` GROUP BY sr.id, p.name, t.first_name, t.last_name ORDER BY sr.scheduled_date DESC`;
 
     const result = await query(sql, params);
     res.json({ services: result.rows });

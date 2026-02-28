@@ -349,11 +349,10 @@ router.get('/:id/services', authenticate, async (req, res, next) => {
 
     const result = await query(
       `SELECT sr.*, p.name as pool_name,
-              COALESCE(t.first_name || ' ' || t.last_name, u.first_name || ' ' || u.last_name) as technician_name
+              t.first_name || ' ' || t.last_name as technician_name
        FROM service_records sr
        LEFT JOIN pools p ON sr.pool_id = p.id
        LEFT JOIN technicians t ON sr.technician_id = t.id
-       LEFT JOIN users u ON sr.technician_id = u.id
        WHERE sr.client_id = $1 AND sr.company_id = $2
        ORDER BY sr.scheduled_date DESC, sr.scheduled_time DESC
        LIMIT $3 OFFSET $4`,

@@ -13,11 +13,11 @@ router.get('/', authenticate, async (req, res, next) => {
 
     let sql = `
       SELECT sr.*, p.name as pool_name, c.name as client_name,
-             u.first_name || ' ' || u.last_name as technician_name
+             t.first_name || ' ' || t.last_name as technician_name
        FROM service_records sr
        JOIN pools p ON sr.pool_id = p.id
        JOIN clients c ON c.id = p.client_id
-       JOIN users u ON sr.technician_id = u.id
+       LEFT JOIN technicians t ON sr.technician_id = t.id
        WHERE sr.company_id = $1
     `;
     const params = [req.user.company_id];
@@ -79,11 +79,11 @@ router.get('/calendar', authenticate, async (req, res, next) => {
     let sql = `
       SELECT sr.id, sr.scheduled_date, sr.scheduled_time, sr.status,
              p.name as pool_name, c.name as client_name,
-             u.first_name as technician_first_name
+             t.first_name as technician_first_name
        FROM service_records sr
        JOIN pools p ON sr.pool_id = p.id
        JOIN clients c ON c.id = p.client_id
-       JOIN users u ON sr.technician_id = u.id
+       LEFT JOIN technicians t ON sr.technician_id = t.id
        WHERE sr.company_id = $1
          AND sr.scheduled_date BETWEEN $2 AND $3
     `;
@@ -109,7 +109,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
     const result = await query(
       `SELECT sr.*, p.name as pool_name, p.volume_gallons, p.has_salt_system,
               c.name as client_name, c.phone as client_phone,
-              u.first_name || ' ' || u.last_name as technician_name,
+              t.first_name || ' ' || t.last_name as technician_name,
               json_agg(DISTINCT jsonb_build_object(
                 'id', cu.id,
                 'chemical_id', cu.chemical_id,
@@ -126,13 +126,13 @@ router.get('/:id', authenticate, async (req, res, next) => {
        FROM service_records sr
        JOIN pools p ON sr.pool_id = p.id
        JOIN clients c ON c.id = p.client_id
-       JOIN users u ON sr.technician_id = u.id
+       LEFT JOIN technicians t ON sr.technician_id = t.id
        LEFT JOIN chemical_usage cu ON cu.service_record_id = sr.id
        LEFT JOIN chemicals ch ON cu.chemical_id = ch.id
        LEFT JOIN service_photos sp ON sp.service_record_id = sr.id
        WHERE sr.id = $1 AND sr.company_id = $2
        GROUP BY sr.id, p.name, p.volume_gallons, p.has_salt_system,
-                c.name, c.phone, u.first_name, u.last_name`,
+                c.name, c.phone, t.first_name, t.last_name`,
       [req.params.id, req.user.company_id]
     );
 
