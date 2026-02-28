@@ -143,6 +143,12 @@ app.use('/api/portal', portalRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/platform', platformRoutes);
 app.use('/api/service-items', serviceItemsRoutes);
+// Direct test route to verify the path works
+app.get('/api/technicians-test', (req, res) => {
+  res.json({ status: 'ok', message: 'Direct technicians test route works' });
+});
+console.log('Direct /api/technicians-test route registered');
+
 console.log('Registering /api/technicians route...');
 console.log('techniciansRoutes type:', typeof techniciansRoutes);
 console.log('techniciansRoutes stack length:', techniciansRoutes.stack ? techniciansRoutes.stack.length : 'no stack');
