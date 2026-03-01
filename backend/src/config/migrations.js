@@ -56,6 +56,22 @@ async function runMigrations() {
       )
     `);
 
+    // Add missing columns to subscription_plans if they don't exist
+    const subscriptionPlanColumns = [
+      { name: 'description', type: 'TEXT' },
+      { name: 'display_name', type: "VARCHAR(255) DEFAULT ''" },
+      { name: 'annual_price', type: 'DECIMAL(10,2)' },
+      { name: 'max_technicians', type: 'INTEGER DEFAULT 2' },
+      { name: 'features', type: "JSONB DEFAULT '[]'" },
+      { name: 'is_active', type: 'BOOLEAN DEFAULT true' },
+      { name: 'sort_order', type: 'INTEGER DEFAULT 0' }
+    ];
+    for (const col of subscriptionPlanColumns) {
+      try {
+        await query(`ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
+      } catch (e) { /* column exists */ }
+    }
+
     // Platform Admins
     await query(`
       CREATE TABLE IF NOT EXISTS platform_admins (
