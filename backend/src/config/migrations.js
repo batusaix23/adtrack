@@ -3,7 +3,7 @@ const logger = require('./logger');
 
 async function runMigrations() {
   try {
-    logger.info('Running database migrations...');
+    logger.info('Running database migrations v1.0.2...');
 
     // ============================================
     // EXTENSIONS
@@ -1342,7 +1342,17 @@ async function runMigrations() {
     // SEED DEFAULT DATA
     // ============================================
 
-    // Default subscription plans
+    // Default subscription plans - First ensure columns exist
+    try {
+      await query(`ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS description TEXT`);
+      await query(`ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS display_name VARCHAR(255)`);
+      await query(`ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS annual_price DECIMAL(10,2)`);
+      await query(`ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS max_technicians INTEGER DEFAULT 2`);
+      await query(`ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '[]'`);
+      await query(`ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`);
+      await query(`ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`);
+    } catch (e) { logger.info('subscription_plans columns already exist'); }
+
     await query(`
       INSERT INTO subscription_plans (name, display_name, description, monthly_price, annual_price, max_users, max_clients, max_technicians, features, sort_order)
       VALUES
