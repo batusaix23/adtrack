@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "watchPatterns": ["src/**"]
+    "watchPatterns": ["src/**", "package.json"]
   },
   "deploy": {
     "startCommand": "node src/app.js",
